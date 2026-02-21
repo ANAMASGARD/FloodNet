@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   Activity,
@@ -45,6 +46,7 @@ import { AnimatedHeading } from "@/components/landing/AnimatedHeading";
 
 export default function LandingPage() {
   const [dark, setDark] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
@@ -86,7 +88,7 @@ export default function LandingPage() {
               />
               <Moon size={14} className="text-muted-foreground" />
             </div>
-            <Button size="sm" className="hidden sm:flex">
+            <Button size="sm" className="hidden sm:flex" onClick={() => router.push('/command-center')}>
               Get Started
               <ArrowRight size={14} className="ml-1" />
             </Button>
@@ -125,8 +127,8 @@ export default function LandingPage() {
             transition={{ duration: 0.6, delay: 0.45 }}
             className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-10"
           >
-            <Button size="lg" className="w-full sm:w-auto">
-              Launch Dashboard
+            <Button size="lg" className="w-full sm:w-auto" onClick={() => router.push('/command-center')}>
+              Launch Command Center
               <ArrowRight size={18} className="ml-2" />
             </Button>
             <Button variant="outline" size="lg" className="w-full sm:w-auto" onClick={() => document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" })}>
@@ -800,8 +802,8 @@ export default function LandingPage() {
           </ScrollReveal>
           <ScrollReveal delay={0.3}>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Button variant="secondary" size="lg" className="w-full sm:w-auto">
-                Get Early Access
+              <Button variant="secondary" size="lg" className="w-full sm:w-auto" onClick={() => router.push('/command-center')}>
+                Launch Command Center
                 <ArrowRight size={18} className="ml-2" />
               </Button>
               <Button variant="outline" size="lg" className="w-full sm:w-auto !text-white !border-white/50 hover:!bg-white/10">
