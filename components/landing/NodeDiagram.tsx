@@ -4,10 +4,10 @@ import { motion, useInView } from "framer-motion";
 import { useRef } from "react";
 import {
   Brain,
-  Hospital,
-  Ambulance,
-  Activity,
-  User,
+  Warehouse,
+  Ship,
+  Waves,
+  Users,
   Zap,
 } from "lucide-react";
 
@@ -17,11 +17,11 @@ interface NodeDiagramProps {
 }
 
 const nodes = [
-  { id: "brain", x: 200, y: 150, icon: Brain, label: "MEDI DEV AI", color: "#EF4444", bg: "#EF4444" },
-  { id: "hospital", x: 70, y: 60, icon: Hospital, label: "Hospital", color: "#22C55E", bg: "#22C55E" },
-  { id: "ambulance", x: 340, y: 60, icon: Ambulance, label: "EMS", color: "#3B82F6", bg: "#3B82F6" },
-  { id: "patient", x: 70, y: 250, icon: User, label: "Patient", color: "#F97316", bg: "#F97316" },
-  { id: "vitals", x: 340, y: 250, icon: Activity, label: "Vitals", color: "#A855F7", bg: "#A855F7" },
+  { id: "brain", x: 200, y: 150, icon: Brain, label: "FloodNet AI", color: "#EF4444", bg: "#EF4444" },
+  { id: "hospital", x: 70, y: 60, icon: Warehouse, label: "Safe Zone", color: "#22C55E", bg: "#22C55E" },
+  { id: "ambulance", x: 340, y: 60, icon: Ship, label: "Response Team", color: "#3B82F6", bg: "#3B82F6" },
+  { id: "patient", x: 70, y: 250, icon: Users, label: "Affected Area", color: "#F97316", bg: "#F97316" },
+  { id: "vitals", x: 340, y: 250, icon: Waves, label: "Sensors", color: "#A855F7", bg: "#A855F7" },
 ];
 
 const connections = [

@@ -7,16 +7,16 @@ import {
   ArrowRight,
   Brain,
   Clock,
-  Heart,
-  Hospital,
-  Ambulance,
+  Droplets,
+  Warehouse,
+  Ship,
   MapPin,
   Moon,
   Shield,
   Sun,
   Zap,
   Radio,
-  Stethoscope,
+  Waves,
   Users,
   BarChart3,
 } from "lucide-react";
@@ -29,7 +29,7 @@ import { Switch } from "@/components/retroui/Switch";
 
 import { ScrollReveal } from "@/components/landing/ScrollReveal";
 import { StatsCounter } from "@/components/landing/StatsCounter";
-import { HealthScoreRing } from "@/components/landing/HealthScoreRing";
+import { FloodRiskRing } from "@/components/landing/FloodRiskRing";
 import { PhoneMockup } from "@/components/landing/PhoneMockup";
 import { PhoneScreenDashboard } from "@/components/landing/PhoneScreenDashboard";
 import { PhoneScreenEmergency } from "@/components/landing/PhoneScreenEmergency";
@@ -39,8 +39,8 @@ import { CrisisMap } from "@/components/landing/CrisisMap";
 import { AnimatedHeading } from "@/components/landing/AnimatedHeading";
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   MEDI DEV — Landing Page
-   Pomegranate Health inspired · Neo-brutalism · RetroUI Components
+   FloodNet — Landing Page
+   Neo-brutalism · RetroUI Components
    ═══════════════════════════════════════════════════════════════════════════ */
 
 export default function LandingPage() {
@@ -59,7 +59,7 @@ export default function LandingPage() {
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-primary pulse-dot" />
             <Text as="h4" className="!text-lg tracking-wide">
-              MEDI DEV
+              FloodNet
             </Text>
           </div>
 
@@ -112,9 +112,9 @@ export default function LandingPage() {
             transition={{ duration: 0.7, delay: 0.3 }}
           >
             <Text as="p" className="text-muted-foreground max-w-2xl mx-auto text-base sm:text-lg mb-8">
-              MEDI DEV coordinates AI agents, hospitals, and first responders in real-time
-              to optimize the <span className="text-primary font-semibold">Golden Hour</span> — 
-              the critical window that determines patient survival.
+              FloodNet coordinates AI agents, safe zones, and response teams in real-time
+              to predict floods and optimize the <span className="text-primary font-semibold">critical response window</span> — 
+              the moments that determine community survival.
             </Text>
           </motion.div>
 
@@ -145,7 +145,7 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* Heartbeat line across bottom */}
+        {/* Wave line across bottom */}
         <div className="absolute bottom-0 left-0 right-0 h-8 overflow-hidden opacity-20">
           <svg viewBox="0 0 1200 40" className="w-full h-full" preserveAspectRatio="none">
             <polyline
@@ -153,7 +153,7 @@ export default function LandingPage() {
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
-              className="text-primary heartbeat-line"
+              className="text-primary wave-line"
             />
           </svg>
         </div>
@@ -163,10 +163,10 @@ export default function LandingPage() {
       <section className="relative border-y-2 border-border bg-muted/50 py-8">
         <div className="max-w-6xl mx-auto px-4 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
           {[
-            { value: 10000, suffix: "+", label: "Patients Served", prefix: "" },
+            { value: 10000, suffix: "+", label: "Communities Protected", prefix: "" },
             { value: 4, suffix: " min", label: "Avg Response Time", prefix: "" },
-            { value: 99, suffix: "%", label: "Coordination Accuracy", prefix: "" },
-            { value: 150, suffix: "+", label: "Connected Hospitals", prefix: "" },
+            { value: 99, suffix: "%", label: "Prediction Accuracy", prefix: "" },
+            { value: 150, suffix: "+", label: "Connected Safe Zones", prefix: "" },
           ].map((stat, i) => (
             <ScrollReveal key={i} delay={i * 0.1}>
               <div className="flex flex-col items-center">
@@ -193,11 +193,11 @@ export default function LandingPage() {
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
               <div>
                 <Badge variant="surface" size="sm" className="mb-2 inline-flex items-center gap-1.5">
-                  <Heart size={10} />
+                  <Droplets size={10} />
                   The Problem
                 </Badge>
                 <Text as="h2" className="!text-2xl sm:!text-3xl !leading-tight">
-                  Emergency Response is{" "}
+                  Flood Response is{" "}
                   <span className="text-primary">Broken</span>
                 </Text>
               </div>
@@ -209,7 +209,7 @@ export default function LandingPage() {
                 </div>
                 <div className="text-center">
                   <StatsCounter to={250} suffix="K" className="font-head text-xl text-primary block" />
-                  <span className="text-[10px] text-muted-foreground">Preventable deaths/yr</span>
+                  <span className="text-[10px] text-muted-foreground">Displaced people/yr</span>
                 </div>
               </div>
             </div>
@@ -242,9 +242,9 @@ export default function LandingPage() {
                 <span className="text-primary">Every Responder</span> Connected.
               </Text>
               <Text as="p" className="text-muted-foreground mb-6 text-base leading-relaxed">
-                MEDI DEV&apos;s AI orchestration engine connects every node in the emergency
-                response chain — from the moment an incident is detected to the patient
-                reaching definitive care. Real-time. Intelligent. Life-saving.
+                FloodNet&apos;s AI orchestration engine connects every node in the flood
+                response chain — from the moment rising waters are detected to communities
+                reaching safe zones. Real-time. Intelligent. Life-saving.
               </Text>
 
               <div className="grid grid-cols-2 gap-4">
@@ -278,18 +278,18 @@ export default function LandingPage() {
                 Features
               </Badge>
               <Text as="h2" className="mb-3">
-                Intelligent Emergency Orchestration
+                Intelligent Flood Orchestration
               </Text>
               <Text as="p" className="text-muted-foreground max-w-xl mx-auto">
-                A unified AI platform that transforms chaotic emergency response
-                into coordinated precision medicine.
+                A unified AI platform that transforms chaotic flood response
+                into coordinated precision rescue.
               </Text>
             </div>
           </ScrollReveal>
 
           {/* Bento Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Card 1 — Triage AI (spans 2 on lg) */}
+            {/* Card 1 — Risk Assessment AI (spans 2 on lg) */}
             <ScrollReveal delay={0} className="lg:col-span-2">
               <Card className="!inline-block w-full h-full">
                 <Card.Header>
@@ -297,10 +297,10 @@ export default function LandingPage() {
                     <div className="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/30 flex items-center justify-center">
                       <Brain size={16} className="text-red-500" />
                     </div>
-                    <Card.Title>AI Triage Engine</Card.Title>
+                    <Card.Title>AI Risk Assessment Engine</Card.Title>
                   </div>
                   <Card.Description>
-                    Instant severity scoring powered by multi-modal AI analysis
+                    Instant flood severity scoring powered by multi-modal AI analysis
                   </Card.Description>
                 </Card.Header>
                 <Card.Content>
@@ -322,7 +322,7 @@ export default function LandingPage() {
                       ))}
                     </div>
                     <div className="flex justify-between mt-2 text-[10px] text-muted-foreground">
-                      <span>Low priority</span>
+                      <span>Low risk</span>
                       <span>Critical</span>
                     </div>
                   </div>
@@ -330,7 +330,7 @@ export default function LandingPage() {
               </Card>
             </ScrollReveal>
 
-            {/* Card 2 — Health Score */}
+            {/* Card 2 — Flood Risk Score */}
             <ScrollReveal delay={0.1}>
               <Card className="!inline-block w-full h-full">
                 <Card.Header>
@@ -338,12 +338,12 @@ export default function LandingPage() {
                     <div className="w-8 h-8 rounded-lg bg-green-500/10 border border-green-500/30 flex items-center justify-center">
                       <Activity size={16} className="text-green-500" />
                     </div>
-                    <Card.Title>Health Score</Card.Title>
+                    <Card.Title>Flood Risk Score</Card.Title>
                   </div>
-                  <Card.Description>Real-time patient health assessment</Card.Description>
+                  <Card.Description>Real-time flood risk assessment</Card.Description>
                 </Card.Header>
                 <Card.Content className="flex justify-center py-2">
-                  <HealthScoreRing score={94} />
+                  <FloodRiskRing score={94} />
                 </Card.Content>
               </Card>
             </ScrollReveal>
@@ -354,11 +354,11 @@ export default function LandingPage() {
                 <Card.Header>
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-center justify-center">
-                      <Ambulance size={16} className="text-blue-500" />
+                      <Ship size={16} className="text-blue-500" />
                     </div>
-                    <Card.Title>Live Dispatch</Card.Title>
+                    <Card.Title>Live Rescue Dispatch</Card.Title>
                   </div>
-                  <Card.Description>Real-time GPS routing & unit tracking</Card.Description>
+                  <Card.Description>Real-time GPS routing & team tracking</Card.Description>
                 </Card.Header>
                 <Card.Content>
                   {/* Animated dispatch visualization */}
@@ -404,7 +404,7 @@ export default function LandingPage() {
                       />
                     </svg>
 
-                    {/* Central hospital target */}
+                    {/* Central safe zone target */}
                     <motion.div
                       className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-lg bg-green-500/20 border border-green-500/50 flex items-center justify-center z-10"
                       initial={{ scale: 0 }}
@@ -412,13 +412,13 @@ export default function LandingPage() {
                       viewport={{ once: true }}
                       transition={{ delay: 0.5, type: "spring" }}
                     >
-                      <Hospital size={14} className="text-green-400" />
+                      <Warehouse size={14} className="text-green-400" />
                     </motion.div>
 
-                    {/* Ambulance units */}
+                    {/* Response team units */}
                     {[
-                      { top: "72%", left: "22%", label: "AMB-01", eta: "4m" },
-                      { top: "78%", left: "72%", label: "AMB-02", eta: "7m" },
+                      { top: "72%", left: "22%", label: "RT-01", eta: "4m" },
+                      { top: "78%", left: "72%", label: "RT-02", eta: "7m" },
                     ].map((unit, i) => (
                       <motion.div
                         key={unit.label}
@@ -430,7 +430,7 @@ export default function LandingPage() {
                         transition={{ delay: 1.2 + i * 0.2, type: "spring" }}
                       >
                         <div className="w-6 h-6 rounded-full bg-blue-500/30 border border-blue-400/60 flex items-center justify-center">
-                          <Ambulance size={10} className="text-blue-300" />
+                          <Ship size={10} className="text-blue-300" />
                         </div>
                         <div className="bg-blue-500/20 backdrop-blur-sm rounded px-1.5 py-0.5 border border-blue-500/30">
                           <span className="text-[7px] text-blue-300 font-mono">{unit.label} · {unit.eta}</span>
@@ -452,7 +452,7 @@ export default function LandingPage() {
                   <div className="flex items-center justify-between mt-3 text-[10px]">
                     <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
                       <span className="w-1.5 h-1.5 rounded-full bg-blue-500 pulse-dot" />
-                      2 units dispatched
+                      2 teams dispatched
                     </div>
                     <div className="text-muted-foreground">
                       ETA: <span className="font-head text-foreground">4 min</span>
@@ -462,24 +462,24 @@ export default function LandingPage() {
               </Card>
             </ScrollReveal>
 
-            {/* Card 4 — Hospital Matching (spans 2 on lg) */}
+            {/* Card 4 — Safe Zone Matching (spans 2 on lg) */}
             <ScrollReveal delay={0.2} className="lg:col-span-2">
               <Card className="!inline-block w-full h-full">
                 <Card.Header>
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/30 flex items-center justify-center">
-                      <Hospital size={16} className="text-purple-500" />
+                      <Warehouse size={16} className="text-purple-500" />
                     </div>
-                    <Card.Title>Hospital Matching</Card.Title>
+                    <Card.Title>Safe Zone Matching</Card.Title>
                   </div>
-                  <Card.Description>AI-powered bed availability and capability matching</Card.Description>
+                  <Card.Description>AI-powered capacity and capability matching</Card.Description>
                 </Card.Header>
                 <Card.Content>
                   <div className="space-y-2.5">
                     {[
-                      { name: "City General", beds: 12, capacity: 78, specialty: "Cardiac", eta: "4 min" },
-                      { name: "St. Mary's Trauma", beds: 5, capacity: 92, specialty: "Trauma", eta: "7 min" },
-                      { name: "University Medical", beds: 8, capacity: 65, specialty: "Neuro", eta: "11 min" },
+                      { name: "Central Relief Hub", beds: 120, capacity: 78, specialty: "Medical", eta: "4 min" },
+                      { name: "Riverbank Safe Zone", beds: 85, capacity: 92, specialty: "Supplies", eta: "7 min" },
+                      { name: "Highland Shelter", beds: 200, capacity: 65, specialty: "Housing", eta: "11 min" },
                     ].map((h, i) => (
                       <motion.div
                         key={i}
@@ -495,7 +495,7 @@ export default function LandingPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between text-sm">
                             <span className="font-head truncate">{h.name}</span>
-                            <Badge variant="default" size="sm">{h.beds} beds</Badge>
+                            <Badge variant="default" size="sm">{h.beds} capacity</Badge>
                           </div>
                           <div className="flex items-center gap-2 mt-1">
                             <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
@@ -535,11 +535,11 @@ export default function LandingPage() {
                 <Card.Content>
                   <div className="flex flex-wrap gap-1.5">
                     {[
-                      { label: "Triage AI", color: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30" },
+                      { label: "Risk AI", color: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30" },
                       { label: "Dispatch", color: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30" },
-                      { label: "Hospital Match", color: "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/30" },
+                      { label: "Safe Zone Match", color: "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/30" },
                       { label: "Route Optimizer", color: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30" },
-                      { label: "Vitals Monitor", color: "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/30" },
+                      { label: "Sensor Monitor", color: "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/30" },
                       { label: "Comms Bridge", color: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/30" },
                     ].map((agent, i) => (
                       <motion.span
@@ -563,25 +563,25 @@ export default function LandingPage() {
               </Card>
             </ScrollReveal>
 
-            {/* Card 6 — Real-time Vitals (full width) */}
+            {/* Card 6 — Real-time Flood Monitoring (full width) */}
             <ScrollReveal delay={0.15} className="sm:col-span-2 lg:col-span-3">
               <Card className="!inline-block w-full">
                 <Card.Header>
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/30 flex items-center justify-center">
-                      <Stethoscope size={16} className="text-red-500" />
+                      <Waves size={16} className="text-red-500" />
                     </div>
-                    <Card.Title>Real-time Vitals Monitoring</Card.Title>
+                    <Card.Title>Real-time Flood Monitoring</Card.Title>
                   </div>
-                  <Card.Description>Continuous patient data streaming with AI anomaly detection</Card.Description>
+                  <Card.Description>Continuous sensor data streaming with AI anomaly detection</Card.Description>
                 </Card.Header>
                 <Card.Content>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {[
-                      { label: "Heart Rate", value: "72", unit: "bpm", color: "#EF4444", sparkline: "M0,15 L5,14 L10,16 L15,12 L17,20 L18,5 L19,25 L20,10 L25,15 L30,14" },
-                      { label: "Blood Pressure", value: "120/80", unit: "mmHg", color: "#3B82F6", sparkline: "M0,15 L5,13 L10,14 L15,12 L20,14 L25,13 L30,15" },
-                      { label: "SpO₂", value: "98", unit: "%", color: "#22C55E", sparkline: "M0,8 L5,7 L10,8 L15,7 L20,8 L25,7 L30,8" },
-                      { label: "Resp Rate", value: "16", unit: "/min", color: "#F97316", sparkline: "M0,15 L5,10 L10,18 L15,10 L20,18 L25,10 L30,15" },
+                      { label: "Water Level", value: "3.2", unit: "m", color: "#3B82F6", sparkline: "M0,15 L5,14 L10,16 L15,12 L17,20 L18,5 L19,25 L20,10 L25,15 L30,14" },
+                      { label: "Flow Rate", value: "450", unit: "m³/s", color: "#EF4444", sparkline: "M0,15 L5,13 L10,14 L15,12 L20,14 L25,13 L30,15" },
+                      { label: "Soil Saturation", value: "78", unit: "%", color: "#22C55E", sparkline: "M0,8 L5,7 L10,8 L15,7 L20,8 L25,7 L30,8" },
+                      { label: "Rain Intensity", value: "42", unit: "mm/h", color: "#F97316", sparkline: "M0,15 L5,10 L10,18 L15,10 L20,18 L25,10 L30,15" },
                     ].map((vital, i) => (
                       <motion.div
                         key={vital.label}
@@ -619,10 +619,10 @@ export default function LandingPage() {
                 How It Works
               </Badge>
               <Text as="h2" className="mb-3">
-                Three Steps to Saving Lives
+                Three Steps to Saving Communities
               </Text>
               <Text as="p" className="text-muted-foreground max-w-xl mx-auto">
-                From emergency detection to definitive care — powered by AI at every step.
+                From flood detection to community rescue — powered by AI at every step.
               </Text>
             </div>
           </ScrollReveal>
@@ -631,8 +631,8 @@ export default function LandingPage() {
             {[
               {
                 step: 1,
-                title: "Emergency Detected",
-                desc: "AI monitors vitals and environmental signals, instantly detecting emergencies and initiating triage protocols.",
+                title: "Flood Detected",
+                desc: "AI monitors water levels and environmental sensors, instantly detecting flood threats and initiating response protocols.",
                 icon: Shield,
                 color: "text-red-500 bg-red-500/10 border-red-500/30",
                 screen: <PhoneScreenEmergency />,
@@ -640,16 +640,16 @@ export default function LandingPage() {
               {
                 step: 2,
                 title: "AI Coordinates",
-                desc: "Autonomous agents dispatch EMS, match hospitals by capability and capacity, optimize routes in real-time.",
+                desc: "Autonomous agents dispatch response teams, match safe zones by capability and capacity, optimize routes in real-time.",
                 icon: Brain,
                 color: "text-blue-500 bg-blue-500/10 border-blue-500/30",
                 screen: <PhoneScreenAgent />,
               },
               {
                 step: 3,
-                title: "Lives Saved",
-                desc: "Patient arrives at the right hospital with full context. Doctors are briefed before the ambulance arrives.",
-                icon: Heart,
+                title: "Communities Saved",
+                desc: "Evacuees arrive at the right safe zone with full context. Relief teams are briefed before the response team arrives.",
+                icon: Droplets,
                 color: "text-green-500 bg-green-500/10 border-green-500/30",
                 screen: <PhoneScreenDashboard />,
               },
@@ -691,7 +691,7 @@ export default function LandingPage() {
               </Text>
               <Text as="p" className="text-muted-foreground max-w-xl mx-auto">
                 Six specialized AI agents working in concert — each an expert in its domain,
-                all connected through MEDI DEV&apos;s orchestration layer.
+                all connected through FloodNet&apos;s orchestration layer.
               </Text>
             </div>
           </ScrollReveal>
@@ -700,30 +700,30 @@ export default function LandingPage() {
             {[
               {
                 icon: Brain,
-                title: "Triage Agent",
-                desc: "Analyzes symptoms, vitals, and patient history to determine severity and priority in under 2 seconds.",
+                title: "Risk Assessment Agent",
+                desc: "Analyzes sensor data, water levels, and terrain to determine flood severity and priority in under 2 seconds.",
                 color: "text-red-500",
                 bgColor: "bg-red-500/10 border-red-500/30",
                 stat: "< 2s",
-                statLabel: "triage time",
+                statLabel: "assessment time",
               },
               {
-                icon: Ambulance,
-                title: "Dispatch Agent",
-                desc: "Selects and dispatches the nearest, best-equipped EMS unit based on real-time location and capabilities.",
+                icon: Ship,
+                title: "Rescue Dispatch Agent",
+                desc: "Selects and dispatches the nearest, best-equipped response team based on real-time location and capabilities.",
                 color: "text-blue-500",
                 bgColor: "bg-blue-500/10 border-blue-500/30",
                 stat: "4 min",
                 statLabel: "avg dispatch",
               },
               {
-                icon: Hospital,
-                title: "Hospital Match Agent",
-                desc: "Cross-references hospital bed availability, specialty capabilities, and patient needs for optimal placement.",
+                icon: Warehouse,
+                title: "Safe Zone Match Agent",
+                desc: "Cross-references safe zone capacity, resource availability, and community needs for optimal placement.",
                 color: "text-green-500",
                 bgColor: "bg-green-500/10 border-green-500/30",
                 stat: "150+",
-                statLabel: "hospitals",
+                statLabel: "safe zones",
               },
               {
                 icon: MapPin,
@@ -736,8 +736,8 @@ export default function LandingPage() {
               },
               {
                 icon: Activity,
-                title: "Vitals Monitor",
-                desc: "Continuously streams and analyzes patient vitals during transport, alerting on anomalies instantly.",
+                title: "Sensor Monitor",
+                desc: "Continuously streams and analyzes flood sensor data across affected zones, alerting on anomalies instantly.",
                 color: "text-orange-500",
                 bgColor: "bg-orange-500/10 border-orange-500/30",
                 stat: "24/7",
@@ -746,7 +746,7 @@ export default function LandingPage() {
               {
                 icon: Radio,
                 title: "Comms Bridge",
-                desc: "Maintains real-time communication between all parties — EMS, hospitals, dispatch, and family.",
+                desc: "Maintains real-time communication between all parties — response teams, safe zones, dispatch, and communities.",
                 color: "text-cyan-500",
                 bgColor: "bg-cyan-500/10 border-cyan-500/30",
                 stat: "12ms",
@@ -789,13 +789,13 @@ export default function LandingPage() {
         <div className="relative z-10 max-w-3xl mx-auto text-center">
           <ScrollReveal>
             <Text as="h2" className="!text-white !text-4xl sm:!text-5xl lg:!text-6xl mb-4">
-              Ready to Transform Emergency Response?
+              Ready to Transform Flood Response?
             </Text>
           </ScrollReveal>
           <ScrollReveal delay={0.15}>
             <Text as="p" className="text-white/80 text-lg mb-8 max-w-xl mx-auto">
-              Join the network of hospitals and first responders using MEDI DEV
-              to save lives in the Golden Hour.
+              Join the network of safe zones and response teams using FloodNet
+              to protect communities when every second counts.
             </Text>
           </ScrollReveal>
           <ScrollReveal delay={0.3}>
@@ -817,13 +817,13 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <div className="w-2.5 h-2.5 rounded-full bg-primary pulse-dot" />
-            <Text as="h5" className="!text-sm">MEDI DEV</Text>
-            <span className="text-muted-foreground text-sm">· Golden Hour</span>
+            <Text as="h5" className="!text-sm">FloodNet</Text>
+            <span className="text-muted-foreground text-sm">· Flood Resilience Network</span>
           </div>
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <span>All Rights Reserved by Medi Dev</span>
+            <span>All Rights Reserved by FloodNet</span>
             <span className="hidden sm:inline">·</span>
-            <span className="hidden sm:inline">Saving lives with AI</span>
+            <span className="hidden sm:inline">Predicting floods with AI</span>
           </div>
         </div>
       </footer>

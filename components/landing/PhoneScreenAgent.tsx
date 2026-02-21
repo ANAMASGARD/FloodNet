@@ -7,22 +7,22 @@ export function PhoneScreenAgent() {
   const messages = [
     {
       from: "ai",
-      text: "Emergency detected. Male, 58, presenting with chest pain and shortness of breath. Initiating triage protocol.",
+      text: "Flood alert triggered. Sector 7 — water levels rising rapidly past 3.2m threshold. Initiating response protocol.",
       time: "14:23",
     },
     {
       from: "user",
-      text: "BP reading 180/110. Patient conscious but distressed.",
+      text: "Confirmed. River gauge at 4.1m and rising. 12 families in low-lying area.",
       time: "14:24",
     },
     {
       from: "ai",
-      text: "High-priority cardiac event. Dispatching Medic Unit 7. Nearest cath lab: City General Hospital — 3 beds available. ETA 4 minutes.",
+      text: "High-priority flood zone. Dispatching Response Team 7. Nearest safe zone: Central Relief Hub — capacity available. ETA 4 minutes.",
       time: "14:24",
     },
     {
       from: "user",
-      text: "Administering aspirin 325mg. O2 sat at 94%.",
+      text: "Deploying sandbags at breach point. Evacuation route Alpha clear.",
       time: "14:25",
     },
   ];
@@ -35,8 +35,8 @@ export function PhoneScreenAgent() {
           <Bot size={12} className="text-red-400" />
         </div>
         <div>
-          <p className="font-head text-[10px]">MEDI DEV Agent</p>
-          <p className="text-[7px] text-green-400">● Active · Triage Mode</p>
+          <p className="font-head text-[10px]">FloodNet Agent</p>
+          <p className="text-[7px] text-green-400">● Active · Flood Mode</p>
         </div>
       </div>
 
@@ -82,7 +82,7 @@ export function PhoneScreenAgent() {
       {/* Input */}
       <div className="flex items-center gap-2 mt-2 pt-2 border-t border-white/10">
         <div className="flex-1 bg-white/5 border border-white/10 rounded-full px-3 py-1.5">
-          <p className="text-white/30 text-[9px]">Describe symptoms...</p>
+          <p className="text-white/30 text-[9px]">Report conditions...</p>
         </div>
         <div className="w-7 h-7 bg-red-500 rounded-full flex items-center justify-center">
           <Send size={10} className="text-white" />

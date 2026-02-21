@@ -16,9 +16,9 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "MEDI DEV · AI Emergency Response",
+  title: "FloodNet · AI Flood Response",
   description:
-    "Golden Hour — AI-powered emergency medical coordination that saves lives by connecting responders, hospitals, and AI agents in real-time.",
+    "FloodNet — AI-powered flood resilience coordination that saves communities by connecting response teams, safe zones, and AI agents in real-time.",
 };
 
 export default function RootLayout({

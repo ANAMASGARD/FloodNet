@@ -186,14 +186,14 @@
   animation: pulse-dot 2s ease-in-out infinite;
 }
 
-/* ── Heartbeat line animation ── */
-@keyframes heartbeat-dash {
+/* ── Wave line animation ── */
+@keyframes wave-dash {
   to { stroke-dashoffset: -1000; }
 }
 
-.heartbeat-line {
+.wave-line {
   stroke-dasharray: 8 4;
-  animation: heartbeat-dash 20s linear infinite;
+  animation: wave-dash 20s linear infinite;
 }
 
 /* ── Smooth scroll ── */

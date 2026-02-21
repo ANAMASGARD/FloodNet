@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useInView } from "framer-motion";
 
-interface HealthScoreRingProps {
+interface FloodRiskRingProps {
   score: number;
   size?: number;
   strokeWidth?: number;
@@ -11,13 +11,13 @@ interface HealthScoreRingProps {
   label?: string;
 }
 
-export function HealthScoreRing({
+export function FloodRiskRing({
   score,
   size = 140,
   strokeWidth = 10,
   className,
-  label = "Health Score",
-}: HealthScoreRingProps) {
+  label = "Flood Risk",
+}: FloodRiskRingProps) {
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "-50px" });
   const [animatedScore, setAnimatedScore] = useState(0);

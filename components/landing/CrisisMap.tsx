@@ -7,25 +7,25 @@ interface CrisisMapProps {
   className?: string;
 }
 
-/* ─── Dummy hospital data (markers) ─── */
+/* ─── Dummy safe zone data (markers) ─── */
 const hospitals = [
-  { name: "City General Hospital", lng: -73.985, lat: 40.748, beds: 12, specialty: "Cardiac", capacity: 78 },
-  { name: "St. Mary's Trauma Center", lng: -73.968, lat: 40.763, beds: 5, specialty: "Trauma", capacity: 92 },
-  { name: "University Medical Center", lng: -74.002, lat: 40.738, beds: 8, specialty: "Neuro", capacity: 65 },
-  { name: "Mercy Hospital", lng: -73.955, lat: 40.730, beds: 15, specialty: "General", capacity: 55 },
-  { name: "Brooklyn Medical", lng: -73.975, lat: 40.688, beds: 6, specialty: "Pediatric", capacity: 81 },
+  { name: "Central Relief Hub", lng: -73.985, lat: 40.748, beds: 120, specialty: "Medical", capacity: 78 },
+  { name: "Riverbank Safe Zone", lng: -73.968, lat: 40.763, beds: 85, specialty: "Supplies", capacity: 92 },
+  { name: "Highland Shelter", lng: -74.002, lat: 40.738, beds: 200, specialty: "Housing", capacity: 65 },
+  { name: "Eastside Relief Center", lng: -73.955, lat: 40.730, beds: 150, specialty: "General", capacity: 55 },
+  { name: "Bayview Safe Zone", lng: -73.975, lat: 40.688, beds: 95, specialty: "Families", capacity: 81 },
 ];
 
-/* ─── Dummy ambulance positions ─── */
+/* ─── Dummy response team positions ─── */
 const ambulances = [
-  { id: "AMB-01", lng: -73.978, lat: 40.752, status: "En Route" },
-  { id: "AMB-02", lng: -73.990, lat: 40.735, status: "Available" },
-  { id: "AMB-03", lng: -73.960, lat: 40.745, status: "En Route" },
-  { id: "AMB-04", lng: -73.972, lat: 40.710, status: "Available" },
+  { id: "RT-01", lng: -73.978, lat: 40.752, status: "En Route" },
+  { id: "RT-02", lng: -73.990, lat: 40.735, status: "Available" },
+  { id: "RT-03", lng: -73.960, lat: 40.745, status: "En Route" },
+  { id: "RT-04", lng: -73.972, lat: 40.710, status: "Available" },
 ];
 
-/* ─── Dummy patient emergency ─── */
-const patient = { lng: -73.980, lat: 40.742, label: "Emergency" };
+/* ─── Dummy flood zone ─── */
+const patient = { lng: -73.980, lat: 40.742, label: "Flood Zone" };
 
 export function CrisisMap({ className }: CrisisMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -76,7 +76,7 @@ export function CrisisMap({ className }: CrisisMapProps) {
     map.current.on("load", () => {
       setLoaded(true);
 
-      /* ── Hospital markers ── */
+      /* ── Safe zone markers ── */
       hospitals.forEach((h) => {
         const el = document.createElement("div");
         el.className = "hospital-marker";
@@ -92,7 +92,7 @@ export function CrisisMap({ className }: CrisisMapProps) {
             transition: transform 0.2s;
             font-size: 14px;
           " onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'">
-            🏥
+            ⛺
           </div>
         `;
 
@@ -119,7 +119,7 @@ export function CrisisMap({ className }: CrisisMapProps) {
                     padding: 2px 8px; border-radius: 4px;
                     font-size: 11px; font-weight: 600;
                     border: 1px solid #22C55E40;
-                  ">${h.beds} beds</span>
+                  ">${h.beds} capacity</span>
                   <span style="
                     background: #3B82F620; color: #2563EB;
                     padding: 2px 8px; border-radius: 4px;
@@ -149,7 +149,7 @@ export function CrisisMap({ className }: CrisisMapProps) {
           .addTo(map.current!);
       });
 
-      /* ── Ambulance markers (animated) ── */
+      /* ── Response team markers (animated) ── */
       ambulances.forEach((a) => {
         const el = document.createElement("div");
         el.className = "ambulance-marker";
@@ -178,7 +178,7 @@ export function CrisisMap({ className }: CrisisMapProps) {
               transition: transform 0.2s;
               font-size: 12px;
             " onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'">
-              🚑
+              �
             </div>
           </div>
         `;
@@ -208,7 +208,7 @@ export function CrisisMap({ className }: CrisisMapProps) {
           .addTo(map.current!);
       });
 
-      /* ── Patient emergency marker (pulsing red) ── */
+      /* ── Flood zone marker (pulsing red) ── */
       const patientEl = document.createElement("div");
       patientEl.innerHTML = `
         <div style="position: relative;">
@@ -250,10 +250,10 @@ export function CrisisMap({ className }: CrisisMapProps) {
           }).setHTML(`
             <div style="font-family: 'Space Grotesk', sans-serif; padding: 4px;">
               <div style="font-family: 'Archivo Black', sans-serif; font-size: 13px; color: #DC2626; margin-bottom: 4px;">
-                🚨 Active Emergency
+                🚨 Active Flood Zone
               </div>
               <div style="font-size: 11px; color: #6B5C52;">
-                Cardiac event detected<br/>
+                Flooding detected<br/>
                 Priority: <strong style="color: #DC2626;">Level 1</strong>
               </div>
             </div>
@@ -337,15 +337,15 @@ export function CrisisMap({ className }: CrisisMapProps) {
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 rounded bg-green-500 inline-block border border-white" />
-            <span className="text-muted-foreground">Hospital</span>
+            <span className="text-muted-foreground">Safe Zone</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full bg-blue-500 inline-block border border-white" />
-            <span className="text-muted-foreground">Ambulance</span>
+            <span className="text-muted-foreground">Response Team</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full bg-red-500 inline-block border border-white pulse-dot" />
-            <span className="text-muted-foreground">Emergency</span>
+            <span className="text-muted-foreground">Flood Zone</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full bg-blue-500 inline-block border-2 border-white" style={{ boxShadow: "0 0 6px rgba(59,130,246,0.5)" }} />
