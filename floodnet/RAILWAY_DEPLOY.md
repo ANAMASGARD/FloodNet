@@ -6,15 +6,16 @@ Deploy all 5 Zynd AI agents to **Railway** so they run 24/7 and stay **active on
 
 ## Option A: One service with Docker (all 5 agents ACTIVE)
 
-A **Dockerfile** at the **repo root** and **start.sh** run all 5 agents plus a **webhook proxy** in one Railway service. The proxy exposes one public URL and routes to each agent so **all 5 show ACTIVE** on the Zynd registry.
+A **Dockerfile** at the **repo root** and **start.sh** run a **webhook proxy** first, then all 5 agents. The proxy listens on Railway’s `PORT` so when each agent registers, Zynd’s health check can reach it → all 5 show **ACTIVE**.
 
 1. **Railway** → your FloodNet service → **Settings**.
 2. **Root Directory:** leave **empty** (Dockerfile is at repo root).
 3. **Build:** Railway uses the root Dockerfile (not Railpack).
 4. **Start command:** leave **empty** (Dockerfile `CMD` runs `./start.sh`).
-5. **Variables:** add `GEMINI_API_KEY`, `ZYND_API_KEY`, `GOOGLE_PLACE_API_KEY`, etc.
-6. **Networking** → **Generate Domain**.
-7. Deploy. Railway sets `RAILWAY_PUBLIC_DOMAIN`; each agent registers its public webhook URL:
+5. **Variables:** add `GEMINI_API_KEY`, `ZYND_API_KEY`, `GOOGLE_PLACE_API_KEY`, and **`PUBLIC_WEBHOOK_URL`** (see below).
+6. **Networking** → **Generate Domain** (e.g. `https://floodnet-production.up.railway.app`).
+7. **Set `PUBLIC_WEBHOOK_URL`** in Railway to your **exact public URL** (no trailing slash), e.g. `https://floodnet-production.up.railway.app`. All 5 agents use this to register their webhook URL with the Zynd registry. If you don’t set it, agents fall back to `RAILWAY_PUBLIC_DOMAIN` (may not reach child processes on some setups).
+8. Deploy. Start order: **proxy first** (so it’s listening), then agents 1–4, then coordinator. Each agent registers:
    - Coordinator: `https://<domain>/webhook`
    - Flood predictor: `https://<domain>/predictor/webhook`
    - Zone mapper: `https://<domain>/mapper/webhook`
@@ -100,7 +101,13 @@ Create **5 services** in the same project, all from the same repo, with differen
 
 Set these in **Railway** → each service → **Variables** (or use **Shared Variables** for the project and override per service if needed).
 
-### Shared (all 5 services)
+### Option A (single Docker service) – required for all 5 ACTIVE
+
+| Variable              | Required | Description |
+|-----------------------|----------|-------------|
+| `PUBLIC_WEBHOOK_URL`  | **Yes**  | Your Railway public URL, no trailing slash (e.g. `https://floodnet-production.up.railway.app`). All 5 agents use this to register their webhook with Zynd so they show ACTIVE. |
+
+### Shared (all 5 services / Option A + B)
 
 | Variable           | Required | Description |
 |--------------------|----------|-------------|
@@ -147,11 +154,9 @@ After the other 4 services have **public URLs**, set these on **floodnet-coordin
 
 ## Step 5: Zynd registry (all 5 agents ACTIVE)
 
-- All 5 agents use **Zynd SDK** and register at startup with **public** webhook URLs so Zynd can reach them.
-- Railway sets **`RAILWAY_PUBLIC_DOMAIN`** automatically. A **webhook proxy** listens on Railway’s `PORT` and forwards:
-  - `/webhook` → coordinator (5005)
-  - `/predictor/webhook`, `/mapper/webhook`, `/planner/webhook`, `/alert/webhook` → agents 1–4 (5001–5004)
-- Each agent passes `webhook_url=https://<RAILWAY_PUBLIC_DOMAIN>/<path>/webhook` to the SDK, so the registry stores the public URL and all 5 show **ACTIVE**. No ngrok, no 24/7 laptop.
+- **Set `PUBLIC_WEBHOOK_URL`** in Railway to your service URL (e.g. `https://floodnet-production.up.railway.app`). All 5 agents read this and register that base + their path with the Zynd registry.
+- **Start order (start.sh):** The **proxy starts first** and listens on Railway’s `PORT`. Then agents 1–4 and the coordinator start. So when each agent registers, Zynd’s health check can already reach `https://<domain>/.../webhook` → all 5 can show **ACTIVE**. (If the proxy started last, agents would register before the proxy was listening and health checks would fail → INACTIVE.)
+- The proxy forwards: `/webhook` → coordinator (5005); `/predictor/webhook`, `/mapper/webhook`, `/planner/webhook`, `/alert/webhook` → agents 1–4 (5001–5004).
 - Ensure **Networking** → **Public networking** is enabled and a domain is generated.
 
 ---

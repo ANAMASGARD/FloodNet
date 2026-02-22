@@ -126,13 +126,13 @@ def create_agent():
 
 
 if __name__ == "__main__":
-    # Public URL so Zynd registry can reach this agent (ACTIVE) when deployed on Railway
+    # Public URL so Zynd registry can reach this agent (ACTIVE). Prefer explicit var (set in Railway).
     webhook_url = None
-    if os.environ.get("RAILWAY_PUBLIC_DOMAIN"):
-        webhook_url = f"https://{os.environ['RAILWAY_PUBLIC_DOMAIN']}/planner/webhook"
-    elif os.environ.get("PUBLIC_WEBHOOK_URL"):
-        base = os.environ["PUBLIC_WEBHOOK_URL"].rstrip("/")
+    base = (os.environ.get("PUBLIC_WEBHOOK_URL") or "").rstrip("/")
+    if base:
         webhook_url = f"{base}/planner/webhook"
+    elif os.environ.get("RAILWAY_PUBLIC_DOMAIN"):
+        webhook_url = f"https://{os.environ['RAILWAY_PUBLIC_DOMAIN']}/planner/webhook"
 
     agent_config = AgentConfig(
         name="floodnet-rescue-planner",

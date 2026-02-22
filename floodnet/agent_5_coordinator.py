@@ -244,14 +244,13 @@ def create_agent():
 
 
 if __name__ == "__main__":
-    # Use public URL for Zynd registry when deployed (e.g. Railway) so the agent shows ACTIVE.
-    # Without this, the SDK registers localhost:PORT and Zynd cannot reach the webhook.
+    # Public URL so Zynd registry can reach this agent (ACTIVE). Prefer explicit var (set in Railway).
     webhook_url = None
-    if os.environ.get("RAILWAY_PUBLIC_DOMAIN"):
-        webhook_url = f"https://{os.environ['RAILWAY_PUBLIC_DOMAIN']}/webhook"
-    elif os.environ.get("PUBLIC_WEBHOOK_URL"):
-        base = os.environ["PUBLIC_WEBHOOK_URL"].rstrip("/")
+    base = (os.environ.get("PUBLIC_WEBHOOK_URL") or "").rstrip("/")
+    if base:
         webhook_url = f"{base}/webhook"
+    elif os.environ.get("RAILWAY_PUBLIC_DOMAIN"):
+        webhook_url = f"https://{os.environ['RAILWAY_PUBLIC_DOMAIN']}/webhook"
 
     agent_config = AgentConfig(
         name="floodnet-coordinator",
