@@ -36,7 +36,9 @@ class ProxyHandler(BaseHTTPRequestHandler):
         # Match longest prefix first so /predictor/webhook wins over /webhook
         for prefix, (port, backend_path) in sorted(ROUTES.items(), key=lambda x: -len(x[0])):
             if path == prefix or path.startswith(prefix + "/") or path.startswith(prefix + "?"):
-                target = (port, backend_path + qs)
+                # Preserve path suffix so /predictor/webhook/sync -> 5001/webhook/sync (Zynd health/sync)
+                suffix = path[len(prefix):] if len(path) > len(prefix) else ""
+                target = (port, backend_path + suffix + qs)
                 break
         if not target:
             self.send_error(404, f"Unknown path: {path}")
