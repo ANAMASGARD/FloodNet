@@ -1,0 +1,22 @@
+# Only build floodnet agents; ignore the rest
+.git
+.env
+.env.*
+**/node_modules
+**/.next
+**/__pycache__
+**/*.pyc
+floodnet/.env
+floodnet/.agent-*
+docs
+*.md
+!floodnet/RAILWAY_DEPLOY.md
+app
+components
+hooks
+lib
+public
+*.json
+!floodnet/requirements.txt
+package.json
+package-lock.json
