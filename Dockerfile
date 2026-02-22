@@ -16,6 +16,13 @@ COPY floodnet/agent_1_flood_predictor.py \
      floodnet/webhook_proxy.py \
      floodnet/start.sh .
 
+# Copy persistent agent identity configs (same seed/DID per agent = one registry entry per agent, no duplicates on redeploy)
+COPY floodnet/.agent-flood-predictor .agent-flood-predictor
+COPY floodnet/.agent-zone-mapper .agent-zone-mapper
+COPY floodnet/.agent-rescue-planner .agent-rescue-planner
+COPY floodnet/.agent-alert-dispatcher .agent-alert-dispatcher
+COPY floodnet/.agent-coordinator .agent-coordinator
+
 RUN chmod +x start.sh
 
 ENV BASE_AGENT_HOST=http://localhost

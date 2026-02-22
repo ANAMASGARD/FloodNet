@@ -29,6 +29,12 @@ class ProxyHandler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         self._proxy()
 
+    def _is_webhook_path(self, path: str) -> bool:
+        for prefix in ROUTES:
+            if path == prefix or path.startswith(prefix + "/") or path.startswith(prefix + "?"):
+                return True
+        return False
+
     def _proxy(self):
         path = self.path.split("?")[0]
         qs = ("?" + self.path.split("?", 1)[1]) if "?" in self.path else ""
@@ -43,6 +49,15 @@ class ProxyHandler(BaseHTTPRequestHandler):
         if not target:
             self.send_error(404, f"Unknown path: {path}")
             return
+
+        # GET to webhook path: respond 200 immediately so Zynd health check passes (backend may only handle POST)
+        if self.command == "GET" and self._is_webhook_path(path):
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain")
+            self.end_headers()
+            self.wfile.write(b"ok")
+            return
+
         port, backend_path = target
         url = f"http://127.0.0.1:{port}{backend_path}"
         try:

@@ -15,7 +15,7 @@ A **Dockerfile** at the **repo root** and **start.sh** run a **webhook proxy** f
 5. **Variables:** add `GEMINI_API_KEY`, `ZYND_API_KEY`, `GOOGLE_PLACE_API_KEY`, and **`PUBLIC_WEBHOOK_URL`** (see below).
 6. **Networking** → **Generate Domain** (e.g. `https://floodnet-production.up.railway.app`).
 7. **Set `PUBLIC_WEBHOOK_URL`** in Railway to your **exact public URL** (no trailing slash), e.g. `https://floodnet-production.up.railway.app`. All 5 agents use this to register their webhook URL with the Zynd registry. If you don’t set it, agents fall back to `RAILWAY_PUBLIC_DOMAIN` (may not reach child processes on some setups).
-8. Deploy. Start order: **proxy first** (so it’s listening), then agents 1–4, then coordinator. Each agent registers:
+8. Deploy. The image includes **persistent agent configs** (`.agent-*`), so the same DID/seed is reused every deploy → **one registry entry per agent** (no duplicate rows). Start order: **proxy first** (so it’s listening), then agents 1–4, then coordinator. Each agent registers:
    - Coordinator: `https://<domain>/webhook`
    - Flood predictor: `https://<domain>/predictor/webhook`
    - Zone mapper: `https://<domain>/mapper/webhook`
@@ -154,9 +154,10 @@ After the other 4 services have **public URLs**, set these on **floodnet-coordin
 
 ## Step 5: Zynd registry (all 5 agents ACTIVE)
 
-- **Set `PUBLIC_WEBHOOK_URL`** in Railway to your service URL (e.g. `https://floodnet-production.up.railway.app`). All 5 agents read this and register that base + their path with the Zynd registry.
-- **Start order (start.sh):** The **proxy starts first** and listens on Railway’s `PORT`. Then agents 1–4 and the coordinator start. So when each agent registers, Zynd’s health check can already reach `https://<domain>/.../webhook` → all 5 can show **ACTIVE**. (If the proxy started last, agents would register before the proxy was listening and health checks would fail → INACTIVE.)
-- The proxy forwards: `/webhook` → coordinator (5005); `/predictor/webhook`, `/mapper/webhook`, `/planner/webhook`, `/alert/webhook` → agents 1–4 (5001–5004).
+- **Set `PUBLIC_WEBHOOK_URL`** in Railway to your service URL (e.g. `https://floodnet-production.up.railway.app`), no trailing slash. **Required** so all 5 agents register the correct public URL. start.sh exports it so every agent process sees it.
+- **Start order (start.sh):** Proxy starts first (6s wait), then agents 1–4 (12s wait), then coordinator. So when Zynd runs a health check after registration, the proxy is listening and agents are up.
+- **Health checks:** The proxy returns **200 OK** for **GET** on any webhook path so Zynd’s health check passes even if the backend only handles POST. **POST** (real messages and /webhook/sync) is still forwarded to the agents — core behaviour unchanged.
+- The proxy forwards: `/webhook` → coordinator (5005); `/predictor/webhook`, `/mapper/webhook`, `/planner/webhook`, `/alert/webhook` → agents 1–4 (5001–5004). Path suffix (e.g. `/sync`) is preserved.
 - Ensure **Networking** → **Public networking** is enabled and a domain is generated.
 
 ---
