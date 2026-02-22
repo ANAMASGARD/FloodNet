@@ -88,6 +88,14 @@ def create_agent():
 
 
 if __name__ == "__main__":
+    # Public URL so Zynd registry can reach this agent (ACTIVE) when deployed on Railway
+    webhook_url = None
+    if os.environ.get("RAILWAY_PUBLIC_DOMAIN"):
+        webhook_url = f"https://{os.environ['RAILWAY_PUBLIC_DOMAIN']}/alert/webhook"
+    elif os.environ.get("PUBLIC_WEBHOOK_URL"):
+        base = os.environ["PUBLIC_WEBHOOK_URL"].rstrip("/")
+        webhook_url = f"{base}/alert/webhook"
+
     agent_config = AgentConfig(
         name="floodnet-alert-dispatcher",
         description="Generates multilingual flood alerts and emergency instructions. Paid agent via x402.",
@@ -99,6 +107,7 @@ if __name__ == "__main__":
         },
         webhook_host="0.0.0.0",
         webhook_port=int(os.environ.get("PORT", "5004")),
+        webhook_url=webhook_url,
         registry_url="https://registry.zynd.ai",
         price="$0.001",
         api_key=os.environ["ZYND_API_KEY"],

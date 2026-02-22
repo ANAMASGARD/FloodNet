@@ -7,12 +7,13 @@ WORKDIR /app
 COPY floodnet/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy agent code and start script
+# Copy agent code, proxy, and start script
 COPY floodnet/agent_1_flood_predictor.py \
      floodnet/agent_2_zone_mapper.py \
      floodnet/agent_3_rescue_planner.py \
      floodnet/agent_4_alert_dispatcher.py \
      floodnet/agent_5_coordinator.py \
+     floodnet/webhook_proxy.py \
      floodnet/start.sh .
 
 RUN chmod +x start.sh

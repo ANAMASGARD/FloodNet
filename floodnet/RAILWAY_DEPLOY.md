@@ -4,18 +4,23 @@ Deploy all 5 Zynd AI agents to **Railway** so they run 24/7 and stay **active on
 
 ---
 
-## Option A: One service with Docker (simplest)
+## Option A: One service with Docker (all 5 agents ACTIVE)
 
-A **Dockerfile** and **start.sh** run all 5 agents in a single Railway service.
+A **Dockerfile** at the **repo root** and **start.sh** run all 5 agents plus a **webhook proxy** in one Railway service. The proxy exposes one public URL and routes to each agent so **all 5 show ACTIVE** on the Zynd registry.
 
 1. **Railway** → your FloodNet service → **Settings**.
-2. **Root Directory:** `floodnet`.
-3. **Build:** Railway will detect the Dockerfile in `floodnet/` and use it (no need to set a custom build command).
-4. **Start command:** leave **empty** (the Dockerfile `CMD` runs `./start.sh`, which starts all 5 agents).
-5. **Pre-deploy command:** leave **empty**.
-6. **Variables:** add `GEMINI_API_KEY`, `ZYND_API_KEY`, `GOOGLE_PLACE_API_KEY`.
-7. **Networking** → **Generate Domain**.
-8. Deploy. The coordinator is exposed on the generated URL; the other 4 agents run inside the same container and are called by the coordinator at `localhost:5001–5004`.
+2. **Root Directory:** leave **empty** (Dockerfile is at repo root).
+3. **Build:** Railway uses the root Dockerfile (not Railpack).
+4. **Start command:** leave **empty** (Dockerfile `CMD` runs `./start.sh`).
+5. **Variables:** add `GEMINI_API_KEY`, `ZYND_API_KEY`, `GOOGLE_PLACE_API_KEY`, etc.
+6. **Networking** → **Generate Domain**.
+7. Deploy. Railway sets `RAILWAY_PUBLIC_DOMAIN`; each agent registers its public webhook URL:
+   - Coordinator: `https://<domain>/webhook`
+   - Flood predictor: `https://<domain>/predictor/webhook`
+   - Zone mapper: `https://<domain>/mapper/webhook`
+   - Rescue planner: `https://<domain>/planner/webhook`
+   - Alert dispatcher: `https://<domain>/alert/webhook`  
+   The coordinator still calls the other 4 at `localhost:5001–5004` internally; Zynd reaches all 5 via the proxy.
 
 ---
 
@@ -140,13 +145,14 @@ After the other 4 services have **public URLs**, set these on **floodnet-coordin
 
 ---
 
-## Step 5: Zynd registry
+## Step 5: Zynd registry (all 5 agents ACTIVE)
 
-- Each agent uses **Zynd SDK** and registers itself at startup using `ZYND_API_KEY`.
-- Railway exposes one public URL per service; the SDK will register the webhook URL that Railway assigns (e.g. `https://floodnet-predictor-production.up.railway.app/webhook`).
-- Ensure **Networking** → **Public networking** is enabled and a domain is generated so the Zynd registry can reach your agents.
-
-No extra code is required for “making it active on the Zynd registry” beyond deploying and having valid `ZYND_API_KEY` and public URLs.
+- All 5 agents use **Zynd SDK** and register at startup with **public** webhook URLs so Zynd can reach them.
+- Railway sets **`RAILWAY_PUBLIC_DOMAIN`** automatically. A **webhook proxy** listens on Railway’s `PORT` and forwards:
+  - `/webhook` → coordinator (5005)
+  - `/predictor/webhook`, `/mapper/webhook`, `/planner/webhook`, `/alert/webhook` → agents 1–4 (5001–5004)
+- Each agent passes `webhook_url=https://<RAILWAY_PUBLIC_DOMAIN>/<path>/webhook` to the SDK, so the registry stores the public URL and all 5 show **ACTIVE**. No ngrok, no 24/7 laptop.
+- Ensure **Networking** → **Public networking** is enabled and a domain is generated.
 
 ---
 
