@@ -1,0 +1,54 @@
+{
+  "id": "1bd03357-6e90-48a7-a6b5-532c917130d3",
+  "didIdentifier": "did:polygonid:polygon:amoy:2qZrDV4D2Sjd6Lxk25XTHmGqYVDKUM78iePteBfeG3",
+  "did": {
+    "id": "urn:dd399f7b-f757-45da-aa71-3a1c34179879",
+    "@context": [
+      "https://www.w3.org/2018/credentials/v1",
+      "https://schema.iden3.io/core/jsonld/iden3proofs.jsonld",
+      "https://schema.iden3.io/core/jsonld/auth.jsonld"
+    ],
+    "type": [
+      "VerifiableCredential",
+      "AuthBJJCredential"
+    ],
+    "credentialSubject": {
+      "x": "4453947655628425810251494365115238732509590774358240539090122429339856549764",
+      "y": "10038326238616837452271004314948998298952277662031059143896892326937416328197",
+      "type": "AuthBJJCredential"
+    },
+    "issuer": "did:polygonid:polygon:amoy:2qZrDV4D2Sjd6Lxk25XTHmGqYVDKUM78iePteBfeG3",
+    "credentialSchema": {
+      "id": "https://schema.iden3.io/core/json/auth.json",
+      "type": "JsonSchema2023"
+    },
+    "credentialStatus": {
+      "id": "https://rhs-staging.polygonid.me/node?state=093c18de29d6fee22ed7d91e8c3c220b7dbf77e3220568ad1679b1614926ea27",
+      "type": "Iden3ReverseSparseMerkleTreeProof",
+      "revocationNonce": 0
+    },
+    "issuanceDate": "2026-02-21T21:22:23.883Z",
+    "proof": [
+      {
+        "issuerData": {
+          "id": "did:polygonid:polygon:amoy:2qZrDV4D2Sjd6Lxk25XTHmGqYVDKUM78iePteBfeG3",
+          "state": {
+            "rootOfRoots": "0000000000000000000000000000000000000000000000000000000000000000",
+            "revocationTreeRoot": "0000000000000000000000000000000000000000000000000000000000000000",
+            "claimsTreeRoot": "5066cf68eefafa40c01bedc4001af8e0f18995bf7a06a7a74149ffc2f4c7c822",
+            "value": "093c18de29d6fee22ed7d91e8c3c220b7dbf77e3220568ad1679b1614926ea27"
+          }
+        },
+        "type": "Iden3SparseMerkleTreeProof",
+        "coreClaim": "cca3371a6cb1b715004407e325bd993c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000084374474a7174aeb83c4f646c40c4466b2ce748faf8c81dfe476166454d8d8090564961c28c1f80ca181fd243902ecefcc2643011276d825d206d344c67d31160000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "mtp": {
+          "existence": true,
+          "siblings": []
+        }
+      }
+    ]
+  },
+  "name": "floodnet-rescue-planner",
+  "description": "Plans evacuation routes with real traffic-aware ETA using Google Routes API",
+  "seed": "k4P2SrR3akE6hiNKcrTgEYp2z5TMrT5WWLRJftf0jfk="
+}

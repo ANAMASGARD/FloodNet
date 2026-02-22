@@ -1,20 +1,19 @@
 'use client';
 
-import { Loader, PhoneOff, Mic } from 'lucide-react';
+import { Loader, PhoneOff, Mic, Shield } from 'lucide-react';
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import axios from 'axios';
 import EmptyBoxState from './EmptyBoxState';
 import FinalUi from './FinalUi';
 import FloodResponsePanel from './FloodResponsePanel';
 import { useVapiVoice } from '@/hooks/useVapiVoice';
+import { useGeolocation } from '@/hooks/useGeolocation';
 import { toast } from 'sonner';
 import type { FloodResponsePlan } from './types';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
-  ui?: string;
-  uiCompleted?: boolean;
 }
 
 const SCROLL_DELAY_MS = 60;
@@ -23,6 +22,22 @@ interface VoiceChatProps {
   onPlanGenerated?: (plan: FloodResponsePlan) => void;
 }
 
+/**
+ * VoiceChat orchestrates the conversation flow:
+ *
+ * VOICE PATH:
+ *   1. User clicks "Start Voice Report" → VAPI call starts
+ *   2. VAPI transcribes in real-time → messages appear in chat
+ *   3. Call ends → "Generate Response Plan" button appears automatically
+ *   4. User clicks → entire conversation sent to n8n with isFinal=true
+ *   5. n8n returns flood_response → map renders markers/heatmap/routes
+ *
+ * TEXT PATH:
+ *   1. User types message → sent to n8n via /api/ai-agent (isFinal=false)
+ *   2. n8n responds conversationally
+ *   3. When n8n returns ui:"final", Generate button appears
+ *   4. Same step 4-5 as above
+ */
 function VoiceChat({ onPlanGenerated }: VoiceChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [userInput, setUserInput] = useState('');
@@ -30,8 +45,11 @@ function VoiceChat({ onPlanGenerated }: VoiceChatProps) {
   const [plan, setPlan] = useState<FloodResponsePlan | null>(null);
   const [generatingPlan, setGeneratingPlan] = useState(false);
   const [isPostPlan, setIsPostPlan] = useState(false);
+  // Show the Generate button after voice call ends or when n8n says "final"
+  const [showGenerateButton, setShowGenerateButton] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  const { userLocation } = useGeolocation();
   const {
     isCallActive,
     isConnecting,
@@ -41,7 +59,6 @@ function VoiceChat({ onPlanGenerated }: VoiceChatProps) {
     clearMessages: clearVapiMessages,
   } = useVapiVoice();
 
-  const [isProcessingVoice, setIsProcessingVoice] = useState(false);
   const [voiceMessageCount, setVoiceMessageCount] = useState(0);
 
   const scrollToBottom = useCallback(() => {
@@ -50,7 +67,7 @@ function VoiceChat({ onPlanGenerated }: VoiceChatProps) {
     setTimeout(() => el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' }), SCROLL_DELAY_MS);
   }, []);
 
-  // Sync VAPI messages into main chat in real-time
+  // Sync VAPI transcript messages into main chat in real-time
   useEffect(() => {
     if (isCallActive && vapiMessages.length > voiceMessageCount) {
       const newMsgs = vapiMessages.slice(voiceMessageCount);
@@ -64,17 +81,39 @@ function VoiceChat({ onPlanGenerated }: VoiceChatProps) {
     if (!isCallActive) setVoiceMessageCount(0);
   }, [isCallActive]);
 
+  // When VAPI call ends and there are messages → show Generate button
+  const wasActiveRef = useRef(false);
+  useEffect(() => {
+    if (isCallActive) {
+      wasActiveRef.current = true;
+    } else if (wasActiveRef.current && !isCallActive) {
+      wasActiveRef.current = false;
+      // Call ended — if we have transcript messages, show the Generate button
+      setTimeout(() => {
+        setMessages(prev => {
+          if (prev.length > 0 && !isPostPlan) {
+            setShowGenerateButton(true);
+            const endMsg: Message = {
+              role: 'assistant',
+              content: 'Voice report received! All transcript data is ready. Click the button below to send everything to the AI agent and generate your flood response plan.',
+            };
+            scrollToBottom();
+            return [...prev, endMsg];
+          }
+          return prev;
+        });
+        clearVapiMessages();
+      }, 600);
+    }
+  }, [isCallActive, isPostPlan, clearVapiMessages, scrollToBottom]);
+
   // Send text message → n8n webhook via /api/ai-agent
-  const sendMessage = useCallback(async (text: string, messageIndex?: number) => {
+  const sendMessage = useCallback(async (text: string) => {
     const trimmed = text?.trim();
     if (!trimmed || loading) return;
 
     setLoading(true);
     setUserInput('');
-
-    if (typeof messageIndex === 'number') {
-      setMessages(prev => prev.map((m, i) => i === messageIndex ? { ...m, uiCompleted: true } : m));
-    }
 
     const userMsg: Message = { role: 'user', content: trimmed };
     setMessages(prev => [...prev, userMsg]);
@@ -86,16 +125,21 @@ function VoiceChat({ onPlanGenerated }: VoiceChatProps) {
         messages: conversation,
         isFinal: false,
         isFollowUp: isPostPlan,
+        user_location: userLocation ? { latitude: userLocation.latitude, longitude: userLocation.longitude } : undefined,
       });
 
       const assistantMsg: Message = {
         role: 'assistant',
         content: res?.data?.resp || 'Processing...',
-        ui: res?.data?.ui || 'none',
-        uiCompleted: false,
       };
       setMessages(prev => [...prev, assistantMsg]);
 
+      // If n8n returns ui:"final", show the Generate button
+      if (res?.data?.ui === 'final') {
+        setShowGenerateButton(true);
+      }
+
+      // If follow-up returns an updated plan
       if (isPostPlan && res?.data?.flood_response) {
         const updated: FloodResponsePlan = res.data.flood_response;
         setPlan(updated);
@@ -107,27 +151,31 @@ function VoiceChat({ onPlanGenerated }: VoiceChatProps) {
     } finally {
       setLoading(false);
     }
-  }, [loading, messages, scrollToBottom, isPostPlan, onPlanGenerated]);
+  }, [loading, messages, scrollToBottom, isPostPlan, onPlanGenerated, userLocation]);
 
   const handleSend = useCallback(() => sendMessage(userInput), [sendMessage, userInput]);
   const handleSuggestionClick = useCallback((s: string) => sendMessage(s), [sendMessage]);
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
   }, [handleSend]);
-  const createUiSelectHandler = useCallback((idx: number) => (sel: string) => sendMessage(sel, idx), [sendMessage]);
 
-  // Generate final flood response plan — sends entire conversation to n8n with isFinal=true
+  // Generate flood response plan — sends ENTIRE conversation to n8n with isFinal=true
   const generatePlan = useCallback(async () => {
     if (generatingPlan) return;
     setGeneratingPlan(true);
+    setShowGenerateButton(false);
 
     const conversation = messages.map(({ role, content }) => ({ role, content }));
     if (conversation.length > 0 && conversation[conversation.length - 1].role === 'assistant') {
-      conversation.push({ role: 'user', content: 'Generate the flood response plan now.' });
+      conversation.push({ role: 'user', content: 'Generate the flood response plan now with all collected information.' });
     }
 
     try {
-      const res = await axios.post('/api/ai-agent', { messages: conversation, isFinal: true });
+      const res = await axios.post('/api/ai-agent', {
+        messages: conversation,
+        isFinal: true,
+        user_location: userLocation ? { latitude: userLocation.latitude, longitude: userLocation.longitude } : undefined,
+      });
       const data: FloodResponsePlan = res.data?.flood_response ?? res.data;
 
       if (data) {
@@ -138,92 +186,29 @@ function VoiceChat({ onPlanGenerated }: VoiceChatProps) {
           ...prev,
           {
             role: 'assistant',
-            content: 'Flood response plan generated! View it on the map and panel. You can keep asking questions to refine.',
-            ui: 'none',
-            uiCompleted: true,
+            content: 'Flood response plan generated! The map is now showing flood zones, safe shelters, rescue teams, and evacuation routes. You can keep asking questions to refine the plan.',
           },
         ]);
         setTimeout(() => {
           document.getElementById('response-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 100);
+        }, 200);
       }
     } catch (err: any) {
       console.error('[FloodNet] Plan generation failed:', err?.message || err);
       toast.error('Could not generate plan. Please try again.');
+      setShowGenerateButton(true);
     } finally {
       setGeneratingPlan(false);
     }
-  }, [messages, generatingPlan, onPlanGenerated]);
-
-  // When VAPI call ends → send entire transcript to n8n for processing
-  const processVoiceConversation = useCallback(async (currentMessages: Message[]) => {
-    if (isProcessingVoice) return;
-    setIsProcessingVoice(true);
-
-    await new Promise(resolve => setTimeout(resolve, 800));
-
-    if (currentMessages.length === 0) {
-      clearVapiMessages();
-      setIsProcessingVoice(false);
-      return;
-    }
-
-    toast.info('Sending transcript to AI agent...');
-
-    try {
-      const conversation = currentMessages.map(({ role, content }) => ({ role, content }));
-      const res = await axios.post('/api/ai-agent', { messages: conversation, isFinal: false });
-      const assistantMsg: Message = {
-        role: 'assistant',
-        content: res?.data?.resp || 'Transcript received. How can I help further?',
-        ui: res?.data?.ui || 'none',
-        uiCompleted: false,
-      };
-      setMessages(prev => [...prev, assistantMsg]);
-      scrollToBottom();
-      toast.success('AI agent responded.');
-    } catch {
-      toast.error('Failed to reach AI agent. Please type instead.');
-    } finally {
-      clearVapiMessages();
-      setIsProcessingVoice(false);
-    }
-  }, [isProcessingVoice, clearVapiMessages, scrollToBottom]);
+  }, [messages, generatingPlan, onPlanGenerated, userLocation]);
 
   const handleVoiceButton = useCallback(async () => {
     if (isCallActive) {
       await toggleCall();
-      processVoiceConversation(messages);
     } else {
       toggleCall();
     }
-  }, [isCallActive, toggleCall, messages, processVoiceConversation]);
-
-  const wasActiveRef = useRef(false);
-  useEffect(() => {
-    if (isCallActive) {
-      wasActiveRef.current = true;
-    } else if (wasActiveRef.current && !isCallActive && !isProcessingVoice) {
-      wasActiveRef.current = false;
-      setTimeout(() => {
-        setMessages(prev => { processVoiceConversation(prev); return prev; });
-      }, 500);
-    }
-  }, [isCallActive, isProcessingVoice, processVoiceConversation]);
-
-  // Render generative UI components on assistant messages
-  const renderGenerativeUi = useCallback((ui: string | undefined, msgIndex: number, completed?: boolean) => {
-    if (!ui || ui === 'none' || completed) return null;
-
-    if (ui === 'final') {
-      const lastFinalIndex = messages.map((m, i) => m.ui === 'final' ? i : -1).filter(i => i !== -1).pop();
-      if (msgIndex !== lastFinalIndex) return null;
-      if (isPostPlan) return null;
-      return <FinalUi generatePlan={generatePlan} isLoading={generatingPlan} planGenerated={!!plan} />;
-    }
-
-    return null;
-  }, [generatePlan, generatingPlan, plan, messages, isPostPlan]);
+  }, [isCallActive, toggleCall]);
 
   useEffect(() => { scrollToBottom(); }, [messages.length, scrollToBottom]);
 
@@ -231,7 +216,6 @@ function VoiceChat({ onPlanGenerated }: VoiceChatProps) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Chat container — fills entire available height */}
       <div className="flex flex-col flex-1 border-2 border-black rounded-2xl bg-card shadow-md overflow-hidden">
 
         {isEmpty && <EmptyBoxState onSuggestionClick={handleSuggestionClick} />}
@@ -239,7 +223,7 @@ function VoiceChat({ onPlanGenerated }: VoiceChatProps) {
         {/* Messages */}
         <section ref={containerRef} className="flex-1 overflow-y-auto p-4 space-y-3">
           {messages.map((msg, i) => (
-            <MessageBubble key={i} message={msg} index={i} renderGenerativeUi={renderGenerativeUi} />
+            <MessageBubble key={i} message={msg} />
           ))}
 
           {/* Live voice transcript */}
@@ -252,7 +236,6 @@ function VoiceChat({ onPlanGenerated }: VoiceChatProps) {
             </div>
           )}
 
-          {/* Listening indicator */}
           {isCallActive && !liveTranscript && (
             <div className="flex justify-center">
               <div className="bg-red-500/10 text-red-600 dark:text-red-400 px-5 py-2.5 rounded-full text-xs font-head flex items-center gap-2 border-2 border-red-500/30">
@@ -270,11 +253,18 @@ function VoiceChat({ onPlanGenerated }: VoiceChatProps) {
             </div>
           )}
 
-          {isProcessingVoice && (
+          {/* Generate Response Plan button — appears after voice call or n8n says "final" */}
+          {showGenerateButton && !isPostPlan && (
+            <div className="px-2 py-1">
+              <FinalUi generatePlan={generatePlan} isLoading={generatingPlan} planGenerated={!!plan} />
+            </div>
+          )}
+
+          {generatingPlan && (
             <div className="flex justify-center">
               <div className="bg-orange-500/10 text-orange-600 px-5 py-2.5 rounded-full text-xs font-head flex items-center gap-2 border-2 border-orange-500/30">
                 <Loader className="animate-spin h-3.5 w-3.5" />
-                Sending to AI agent...
+                AI agents coordinating response...
               </div>
             </div>
           )}
@@ -285,7 +275,7 @@ function VoiceChat({ onPlanGenerated }: VoiceChatProps) {
           {/* Voice button — large and prominent */}
           <button
             onClick={handleVoiceButton}
-            disabled={loading || isConnecting || isProcessingVoice}
+            disabled={loading || isConnecting || generatingPlan}
             className={`w-full flex items-center justify-center gap-3 py-3.5 rounded-xl font-head text-sm transition-all active:scale-[0.98] disabled:cursor-not-allowed border-2 mb-3 ${
               isCallActive
                 ? 'bg-red-500 hover:bg-red-600 text-white border-red-700 shadow-lg shadow-red-500/20'
@@ -294,10 +284,8 @@ function VoiceChat({ onPlanGenerated }: VoiceChatProps) {
           >
             {isConnecting ? (
               <><Loader className="animate-spin h-5 w-5" /> Connecting to FloodNet...</>
-            ) : isProcessingVoice ? (
-              <><Loader className="animate-spin h-5 w-5" /> Processing transcript...</>
             ) : isCallActive ? (
-              <><PhoneOff className="h-5 w-5" /> End Call &amp; Send to AI Agent</>
+              <><PhoneOff className="h-5 w-5" /> End Call &amp; Prepare Report</>
             ) : (
               <><Mic className="h-5 w-5" /> Start Voice Report</>
             )}
@@ -336,14 +324,8 @@ function VoiceChat({ onPlanGenerated }: VoiceChatProps) {
   );
 }
 
-interface MessageBubbleProps {
-  message: Message;
-  index: number;
-  renderGenerativeUi: (ui: string | undefined, msgIndex: number, completed?: boolean) => React.ReactNode;
-}
-
-const MessageBubble = React.memo(function MessageBubble({ message, index, renderGenerativeUi }: MessageBubbleProps) {
-  const { role, content, ui, uiCompleted } = message;
+const MessageBubble = React.memo(function MessageBubble({ message }: { message: Message }) {
+  const { role, content } = message;
   if (role === 'user') {
     return (
       <div className="flex justify-end">
@@ -357,7 +339,6 @@ const MessageBubble = React.memo(function MessageBubble({ message, index, render
     <div className="flex justify-start">
       <div className="max-w-[80%] bg-muted/60 text-foreground px-4 py-2 rounded-2xl rounded-tl-none border-2 border-border shadow-sm text-sm leading-relaxed">
         {content}
-        {renderGenerativeUi(ui, index, uiCompleted)}
       </div>
     </div>
   );

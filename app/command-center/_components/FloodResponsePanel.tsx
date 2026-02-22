@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import { Shield, MapPin, Ship, AlertTriangle, Package, Route } from 'lucide-react';
+import { Shield, MapPin, Ship, AlertTriangle, Package, Route, Heart, Cloud, Newspaper, Network, Search, CreditCard, Upload } from 'lucide-react';
 import type { FloodResponsePlan } from './types';
 
 interface Props {
@@ -160,6 +160,76 @@ export default function FloodResponsePanel({ plan }: Props) {
         </div>
       )}
 
+      {/* Hospitals */}
+      {plan.hospitals && plan.hospitals.length > 0 && (
+        <div className="border-2 rounded-2xl p-5 bg-card shadow-md">
+          <div className="flex items-center gap-2 mb-4">
+            <Heart className="w-5 h-5 text-red-500" />
+            <h3 className="font-head text-lg">Nearby Hospitals</h3>
+          </div>
+          <div className="space-y-2">
+            {plan.hospitals.map((h, i) => (
+              <div key={i} className="flex items-center gap-3 p-3 bg-muted/50 rounded-xl border-2">
+                <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                  h.at_risk ? 'bg-red-500/10 border-red-500/30' : 'bg-green-500/10 border-green-500/30'
+                }`}>
+                  <Heart className={`w-3.5 h-3.5 ${h.at_risk ? 'text-red-500' : 'text-green-500'}`} />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-head text-sm">{h.name}</span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-head ${
+                      h.open_now ? 'bg-green-500/10 text-green-600' : 'bg-red-500/10 text-red-600'
+                    }`}>
+                      {h.open_now ? 'Open' : 'Closed'}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {h.distance_km} km away · {h.address}
+                    {h.at_risk && ' · ⚠️ In flood zone'}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Weather Current */}
+      {plan.weather_current && (
+        <div className="border-2 rounded-2xl p-5 bg-card shadow-md">
+          <div className="flex items-center gap-2 mb-4">
+            <Cloud className="w-5 h-5 text-blue-400" />
+            <h3 className="font-head text-lg">Current Weather</h3>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { label: 'Temperature', value: `${plan.weather_current.temp_c}°C` },
+              { label: 'Rainfall', value: `${plan.weather_current.rainfall_mm} mm/h` },
+              { label: 'Humidity', value: `${plan.weather_current.humidity_pct}%` },
+              { label: 'Wind Speed', value: `${plan.weather_current.wind_speed_kmh} km/h` },
+            ].map((item, i) => (
+              <div key={i} className="p-3 bg-muted/50 rounded-xl border-2 text-center">
+                <p className="text-[10px] text-muted-foreground">{item.label}</p>
+                <p className="font-head text-sm mt-0.5">{item.value}</p>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground mt-3 capitalize text-center">{plan.weather_current.description}</p>
+        </div>
+      )}
+
+      {/* Real-time Intel (Perplexity) */}
+      {plan.perplexity_context && (
+        <div className="border-2 rounded-2xl p-5 bg-card shadow-md">
+          <div className="flex items-center gap-2 mb-4">
+            <Newspaper className="w-5 h-5 text-indigo-500" />
+            <h3 className="font-head text-lg">Real-Time Intelligence</h3>
+          </div>
+          <p className="text-sm leading-relaxed text-muted-foreground">{plan.perplexity_context}</p>
+        </div>
+      )}
+
       {/* Resource Needs */}
       {plan.resource_needs?.length > 0 && (
         <div className="border-2 rounded-2xl p-5 bg-card shadow-md">
@@ -180,6 +250,66 @@ export default function FloodResponsePanel({ plan }: Props) {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Zynd Network (Publish / Search / Pay proof for judges) */}
+      {plan.zynd_network && (
+        <div className="border-2 rounded-2xl p-5 bg-linear-to-br from-violet-500/5 to-blue-500/5 shadow-md">
+          <div className="flex items-center gap-2 mb-4">
+            <Network className="w-5 h-5 text-violet-500" />
+            <h3 className="font-head text-lg">Zynd Decentralized Agent Network</h3>
+          </div>
+
+          <div className="space-y-2 mb-4">
+            <div className="flex items-center gap-2 p-2.5 bg-violet-500/10 rounded-xl border border-violet-500/20">
+              <Upload className="w-4 h-4 text-violet-500 shrink-0" />
+              <div>
+                <p className="text-xs font-head text-violet-700 dark:text-violet-300">Publish</p>
+                <p className="text-[10px] text-muted-foreground">{plan.zynd_network.zynd_services_used?.publish}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 p-2.5 bg-blue-500/10 rounded-xl border border-blue-500/20">
+              <Search className="w-4 h-4 text-blue-500 shrink-0" />
+              <div>
+                <p className="text-xs font-head text-blue-700 dark:text-blue-300">Search</p>
+                <p className="text-[10px] text-muted-foreground">{plan.zynd_network.zynd_services_used?.search}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 p-2.5 bg-green-500/10 rounded-xl border border-green-500/20">
+              <CreditCard className="w-4 h-4 text-green-500 shrink-0" />
+              <div>
+                <p className="text-xs font-head text-green-700 dark:text-green-300">Pay (x402)</p>
+                <p className="text-[10px] text-muted-foreground">{plan.zynd_network.zynd_services_used?.pay}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-center">
+            <div className="p-2 bg-muted/50 rounded-lg border">
+              <p className="text-lg font-head">{plan.zynd_network.agents_discovered_via_zynd}</p>
+              <p className="text-[9px] text-muted-foreground">Agents Discovered</p>
+            </div>
+            <div className="p-2 bg-muted/50 rounded-lg border">
+              <p className="text-lg font-head">{plan.zynd_network.agents_called?.length || 0}</p>
+              <p className="text-[9px] text-muted-foreground">Agents Called</p>
+            </div>
+          </div>
+
+          {plan.zynd_network.agents_called?.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-1">
+              {plan.zynd_network.agents_called.map((name, i) => (
+                <span key={i} className="text-[9px] px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-600 dark:text-violet-400 font-head border border-violet-500/20">
+                  {name.replace('call_', '')}
+                </span>
+              ))}
+            </div>
+          )}
+
+          <p className="text-[9px] text-muted-foreground mt-3 text-center">
+            Mode: <span className="font-head">{plan.zynd_network.mode}</span>
+            {plan.zynd_network.paid_agent_used && ' · x402 payment processed'}
+          </p>
         </div>
       )}
 

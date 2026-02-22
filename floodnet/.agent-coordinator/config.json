@@ -1,0 +1,54 @@
+{
+  "id": "a994faaa-2cd2-4939-9466-00edf6474c70",
+  "didIdentifier": "did:polygonid:polygon:amoy:2qU8LyXhmDmriSzF7DyPxzZ5t583XDFujcfuAnkge7",
+  "did": {
+    "id": "urn:bd4e16cc-bc18-4cc6-b1ae-7a7e276dab16",
+    "@context": [
+      "https://www.w3.org/2018/credentials/v1",
+      "https://schema.iden3.io/core/jsonld/iden3proofs.jsonld",
+      "https://schema.iden3.io/core/jsonld/auth.jsonld"
+    ],
+    "type": [
+      "VerifiableCredential",
+      "AuthBJJCredential"
+    ],
+    "credentialSubject": {
+      "x": "1374372669008088106935244686270440835301046150043795874556315987556475149734",
+      "y": "18479321609921437009397916129430676605710607098083800789152938026022804684921",
+      "type": "AuthBJJCredential"
+    },
+    "issuer": "did:polygonid:polygon:amoy:2qU8LyXhmDmriSzF7DyPxzZ5t583XDFujcfuAnkge7",
+    "credentialSchema": {
+      "id": "https://schema.iden3.io/core/json/auth.json",
+      "type": "JsonSchema2023"
+    },
+    "credentialStatus": {
+      "id": "https://rhs-staging.polygonid.me/node?state=014ba1953658f43d60c61a9643a4920638e6dbbde0b6144608b946308af11b11",
+      "type": "Iden3ReverseSparseMerkleTreeProof",
+      "revocationNonce": 0
+    },
+    "issuanceDate": "2026-02-21T21:22:28.923Z",
+    "proof": [
+      {
+        "issuerData": {
+          "id": "did:polygonid:polygon:amoy:2qU8LyXhmDmriSzF7DyPxzZ5t583XDFujcfuAnkge7",
+          "state": {
+            "rootOfRoots": "0000000000000000000000000000000000000000000000000000000000000000",
+            "revocationTreeRoot": "0000000000000000000000000000000000000000000000000000000000000000",
+            "claimsTreeRoot": "4ad5e3021221f9d0f55f13a6f00a438bf19d8ab6a7a17d17fe2c1ccd8160bd2a",
+            "value": "014ba1953658f43d60c61a9643a4920638e6dbbde0b6144608b946308af11b11"
+          }
+        },
+        "type": "Iden3SparseMerkleTreeProof",
+        "coreClaim": "cca3371a6cb1b715004407e325bd993c000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a61d9537472dfefa51d6f06ea670894a4bfceb2898627e9fa2ac7c920bde09037980d805cee4f9215767e59d6dc83fd20f81e9090ceefb082f29b1c2e5ecda280000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "mtp": {
+          "existence": true,
+          "siblings": []
+        }
+      }
+    ]
+  },
+  "name": "floodnet-coordinator",
+  "description": "Master orchestrator for FloodNet. Discovers and coordinates all flood resilience agents via the Zynd decentralized registry.",
+  "seed": "918Gvu8ivfWR9PjhGqKcAaq205YfIWPnYY/w8h9W0r8="
+}

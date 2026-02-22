@@ -40,6 +40,29 @@ export interface EvacuationRoute {
   status: 'clear' | 'partial' | 'blocked';
 }
 
+export interface HeatmapPoint {
+  latitude: number;
+  longitude: number;
+  intensity: number;
+}
+
+export interface Hospital {
+  name: string;
+  address: string;
+  geo_coordinates: GeoCoordinates;
+  distance_km: number;
+  open_now: boolean;
+  at_risk: boolean;
+}
+
+export interface WeatherInfo {
+  temp_c: number;
+  rainfall_mm: number;
+  humidity_pct: number;
+  wind_speed_kmh: number;
+  description: string;
+}
+
 export interface FloodResponsePlan {
   location: string;
   severity: string;
@@ -62,4 +85,27 @@ export interface FloodResponsePlan {
   }[];
   center_coordinates: GeoCoordinates;
   disclaimer: string;
+
+  heatmap_points?: HeatmapPoint[];
+  hospitals?: Hospital[];
+  weather_current?: WeatherInfo;
+  route_polyline?: [number, number][];
+  risk_level?: string;
+  perplexity_context?: string;
+  zynd_network?: ZyndNetworkInfo;
+}
+
+export interface ZyndNetworkInfo {
+  agents_discovered_via_zynd: number;
+  coordinator_discovered: boolean;
+  coordinator_endpoint: string;
+  agents_called: string[];
+  paid_agent_used: boolean;
+  zynd_search_queries: string[];
+  mode: string;
+  zynd_services_used: {
+    publish: string;
+    search: string;
+    pay: string;
+  };
 }

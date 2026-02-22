@@ -30,9 +30,10 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files
+# env files (do not commit; set in Railway/Vercel for deployment)
 .env
 .env.local
+floodnet/.env
 .env.development.map
 .env.test.local
 .env.production.local

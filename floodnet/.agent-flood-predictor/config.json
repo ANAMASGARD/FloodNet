@@ -1,0 +1,54 @@
+{
+  "id": "1baf47b6-5242-4245-8de7-49f7258524bc",
+  "didIdentifier": "did:polygonid:polygon:amoy:2qa5GAEqqipm2DLqFMo26dngVW5RxJvVdqCoFcEgMJ",
+  "did": {
+    "id": "urn:aaf4bb48-8b26-447d-8580-ca8cbfa8b333",
+    "@context": [
+      "https://www.w3.org/2018/credentials/v1",
+      "https://schema.iden3.io/core/jsonld/iden3proofs.jsonld",
+      "https://schema.iden3.io/core/jsonld/auth.jsonld"
+    ],
+    "type": [
+      "VerifiableCredential",
+      "AuthBJJCredential"
+    ],
+    "credentialSubject": {
+      "x": "18068259703055517845375470115184206366644688590703840992104797446558801637343",
+      "y": "2040026042826287074854844567092634858330839558661318030237311431964485341594",
+      "type": "AuthBJJCredential"
+    },
+    "issuer": "did:polygonid:polygon:amoy:2qa5GAEqqipm2DLqFMo26dngVW5RxJvVdqCoFcEgMJ",
+    "credentialSchema": {
+      "id": "https://schema.iden3.io/core/json/auth.json",
+      "type": "JsonSchema2023"
+    },
+    "credentialStatus": {
+      "id": "https://rhs-staging.polygonid.me/node?state=8a0492d6d3dbf35031df7adc68f222a3a5d2011ed16c3c3440d6c20f93d52416",
+      "type": "Iden3ReverseSparseMerkleTreeProof",
+      "revocationNonce": 0
+    },
+    "issuanceDate": "2026-02-21T21:22:20.289Z",
+    "proof": [
+      {
+        "issuerData": {
+          "id": "did:polygonid:polygon:amoy:2qa5GAEqqipm2DLqFMo26dngVW5RxJvVdqCoFcEgMJ",
+          "state": {
+            "rootOfRoots": "0000000000000000000000000000000000000000000000000000000000000000",
+            "revocationTreeRoot": "0000000000000000000000000000000000000000000000000000000000000000",
+            "claimsTreeRoot": "ea68d71108b1fbb04abbd763334dd04280c1166230d8cf7003803170a5e4f307",
+            "value": "8a0492d6d3dbf35031df7adc68f222a3a5d2011ed16c3c3440d6c20f93d52416"
+          }
+        },
+        "type": "Iden3SparseMerkleTreeProof",
+        "coreClaim": "cca3371a6cb1b715004407e325bd993c000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000dfaf5a1d1f8857184669c5e9cdad826ecffbd15a4056de4c5072583ac845f2279ad12d53a9a951daa7a0f3928945ba9d5f1a6ce32f28272b3973c574239d82040000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "mtp": {
+          "existence": true,
+          "siblings": []
+        }
+      }
+    ]
+  },
+  "name": "floodnet-flood-predictor",
+  "description": "Predicts flood risk using real rainfall and river discharge data from Open-Meteo APIs",
+  "seed": "XA/6Q+E/IIw+z258oSH43E2J8tzT37BNU+aEEuM7NfY="
+}

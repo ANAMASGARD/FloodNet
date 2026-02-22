@@ -20,6 +20,21 @@ interface UseVapiVoiceReturn {
   volumeLevel: number;
 }
 
+// Single VAPI client per app — avoids KrispSDK "duplicated" and double WebSocket/transport
+let globalVapi: any = null;
+let globalVapiInitPromise: Promise<any> | null = null;
+
+function getOrCreateVapi(apiKey: string): Promise<any> {
+  if (globalVapi) return Promise.resolve(globalVapi);
+  if (globalVapiInitPromise) return globalVapiInitPromise;
+  globalVapiInitPromise = (async () => {
+    const Vapi = (await import('@vapi-ai/web')).default;
+    globalVapi = new Vapi(apiKey);
+    return globalVapi;
+  })();
+  return globalVapiInitPromise;
+}
+
 export function useVapiVoice(): UseVapiVoiceReturn {
   const [isCallActive, setIsCallActive] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -28,8 +43,10 @@ export function useVapiVoice(): UseVapiVoiceReturn {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [volumeLevel, setVolumeLevel] = useState(0);
   const vapiRef = useRef<any>(null);
+  const transportErrorShown = useRef(false);
 
   useEffect(() => {
+    let mounted = true;
     let vapiInstance: any = null;
 
     const initVapi = async () => {
@@ -42,16 +59,20 @@ export function useVapiVoice(): UseVapiVoiceReturn {
       }
 
       try {
-        const Vapi = (await import('@vapi-ai/web')).default;
-        vapiInstance = new Vapi(VAPI_API_KEY);
+        vapiInstance = await getOrCreateVapi(VAPI_API_KEY);
+        if (!mounted) return;
+        vapiRef.current = vapiInstance;
 
         vapiInstance.on('call-start', () => {
+          if (!mounted) return;
           setIsCallActive(true);
           setIsConnecting(false);
+          transportErrorShown.current = false;
           toast.success('Connected to FloodNet! Start speaking...');
         });
 
         vapiInstance.on('call-end', () => {
+          if (!mounted) return;
           setIsCallActive(false);
           setIsConnecting(false);
           setIsSpeaking(false);
@@ -59,11 +80,12 @@ export function useVapiVoice(): UseVapiVoiceReturn {
           setVolumeLevel(0);
         });
 
-        vapiInstance.on('speech-start', () => setIsSpeaking(true));
-        vapiInstance.on('speech-end', () => setIsSpeaking(false));
-        vapiInstance.on('volume-level', (level: number) => setVolumeLevel(level));
+        vapiInstance.on('speech-start', () => mounted && setIsSpeaking(true));
+        vapiInstance.on('speech-end', () => mounted && setIsSpeaking(false));
+        vapiInstance.on('volume-level', (level: number) => mounted && setVolumeLevel(level));
 
         vapiInstance.on('message', (msg: any) => {
+          if (!mounted) return;
           if (msg.type === 'transcript') {
             if (msg.transcriptType === 'partial' && msg.role === 'user') {
               setLiveTranscript(msg.transcript || '');
@@ -91,6 +113,7 @@ export function useVapiVoice(): UseVapiVoiceReturn {
         });
 
         vapiInstance.on('error', (error: any) => {
+          if (!mounted) return;
           let errorMessage = 'Connection failed';
           if (typeof error === 'string') errorMessage = error;
           else if (error?.errorMessage) errorMessage = String(error.errorMessage);
@@ -100,20 +123,31 @@ export function useVapiVoice(): UseVapiVoiceReturn {
           } else if (error?.statusCode === 401) errorMessage = 'Invalid API Key';
           else if (error?.statusCode === 404) errorMessage = 'Assistant not found';
 
-          toast.error(errorMessage);
+          const msg = String(errorMessage || '').toLowerCase();
+          if (msg.includes('transport') || msg.includes('disconnected') || msg.includes('failed') || msg.includes('network') || msg.includes('name_not_resolved')) {
+            if (!transportErrorShown.current) {
+              transportErrorShown.current = true;
+              toast.error('Voice unavailable. Check your network and that daily.co is not blocked.');
+            }
+          } else {
+            toast.error(errorMessage);
+          }
           setIsConnecting(false);
           setIsCallActive(false);
         });
-
-        vapiRef.current = vapiInstance;
       } catch (err) {
-        console.error('[VAPI] Init failed:', err);
+        if (mounted) console.error('[VAPI] Init failed:', err);
       }
     };
 
     initVapi();
     return () => {
-      if (vapiInstance) { try { vapiInstance.stop(); } catch { /* */ } }
+      mounted = false;
+      vapiRef.current = null;
+      // Do not destroy globalVapi on unmount — other components may use it; only stop active call
+      if (vapiInstance) {
+        try { vapiInstance.stop(); } catch { /* */ }
+      }
     };
   }, []);
 

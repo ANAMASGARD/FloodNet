@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import VoiceChat from './_components/VoiceChat';
 import GlobalMap from './_components/GlobalMap';
 import FloodResponsePanel from './_components/FloodResponsePanel';
-import { Globe2, List, ArrowLeft, Waves } from 'lucide-react';
+import { Globe2, List, ArrowLeft, Waves, Network } from 'lucide-react';
 import Link from 'next/link';
 import type { FloodResponsePlan } from './_components/types';
 import { Toaster } from 'sonner';
@@ -36,7 +36,15 @@ export default function CommandCenter() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            {plan?.zynd_network && (
+              <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-violet-500/10 border border-violet-500/20">
+                <Network className="w-3 h-3 text-violet-500" />
+                <span className="text-[9px] font-head text-violet-600 dark:text-violet-400">
+                  Zynd: {plan.zynd_network.agents_discovered_via_zynd} agents
+                </span>
+              </div>
+            )}
             <span className="text-[10px] text-muted-foreground hidden md:inline">
               {plan ? `Active: ${plan.location}` : 'Awaiting report...'}
             </span>
