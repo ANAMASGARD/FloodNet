@@ -1,10 +1,25 @@
 # Deploy FloodNet Python Agents to Railway
 
-Deploy all 5 Zynd AI agents to **Railway** so they run 24/7 and stay **active on the Zynd registry**. Your Next.js app stays on Vercel and will call these agents via their public Railway URLs.
+Deploy all 5 Zynd AI agents to **Railway** so they run 24/7 and stay **active on the Zynd registry**. Your Next.js app stays on Vercel and will call the coordinator via its public Railway URL.
 
 ---
 
-## Overview
+## Option A: One service with Docker (simplest)
+
+A **Dockerfile** and **start.sh** run all 5 agents in a single Railway service.
+
+1. **Railway** → your FloodNet service → **Settings**.
+2. **Root Directory:** `floodnet`.
+3. **Build:** Railway will detect the Dockerfile in `floodnet/` and use it (no need to set a custom build command).
+4. **Start command:** leave **empty** (the Dockerfile `CMD` runs `./start.sh`, which starts all 5 agents).
+5. **Pre-deploy command:** leave **empty**.
+6. **Variables:** add `GEMINI_API_KEY`, `ZYND_API_KEY`, `GOOGLE_PLACE_API_KEY`.
+7. **Networking** → **Generate Domain**.
+8. Deploy. The coordinator is exposed on the generated URL; the other 4 agents run inside the same container and are called by the coordinator at `localhost:5001–5004`.
+
+---
+
+## Option B: Five separate services (no Docker)
 
 | Service        | Agent file                  | Default port | Railway service name (suggested) |
 |----------------|-----------------------------|--------------|----------------------------------|
