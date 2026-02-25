@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import VoiceChat from './_components/VoiceChat';
 import GlobalMap from './_components/GlobalMap';
 import FloodResponsePanel from './_components/FloodResponsePanel';
-import { Globe2, List, ArrowLeft, Waves, Network } from 'lucide-react';
+import LocationManager from './_components/LocationManager';
+import GeolocationPrompt from './_components/GeolocationPrompt';
+import { Globe2, List, ArrowLeft, Waves, MapPin } from 'lucide-react';
 import Link from 'next/link';
 import type { FloodResponsePlan } from './_components/types';
 import { Toaster } from 'sonner';
@@ -12,11 +14,17 @@ import { UserButton } from '@clerk/nextjs';
 
 export default function CommandCenter() {
   const [plan, setPlan] = useState<FloodResponsePlan | null>(null);
-  const [activeView, setActiveView] = useState<'map' | 'plan'>('map');
+  const [activeView, setActiveView] = useState<'map' | 'plan' | 'locations'>('map');
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; city: string } | null>(null);
+
+  const handleLocationReady = useCallback((lat: number, lng: number, city: string) => {
+    setUserLocation({ lat, lng, city });
+  }, []);
 
   return (
     <>
       <Toaster richColors position="top-right" />
+      <GeolocationPrompt onLocationReady={handleLocationReady} />
 
       {/* Header — compact */}
       <header className="sticky top-0 z-50 backdrop-blur-xl bg-background/80 border-b-2 border-border">
@@ -38,14 +46,6 @@ export default function CommandCenter() {
           </div>
 
           <div className="flex items-center gap-3">
-            {plan?.zynd_network && (
-              <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-violet-500/10 border border-violet-500/20">
-                <Network className="w-3 h-3 text-violet-500" />
-                <span className="text-[9px] font-head text-violet-600 dark:text-violet-400">
-                  Zynd: {plan.zynd_network.agents_discovered_via_zynd} agents
-                </span>
-              </div>
-            )}
             <div className={`w-2 h-2 rounded-full ${plan ? 'bg-green-500' : 'bg-yellow-500'} pulse-dot`} />
             <span className="text-[10px] text-muted-foreground hidden md:inline">
               {plan ? `Active: ${plan.location}` : 'Awaiting report...'}
@@ -66,14 +66,14 @@ export default function CommandCenter() {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 px-3 py-2 max-w-[1920px] mx-auto h-[calc(100vh-48px)] overflow-hidden">
         {/* Left: VoiceChat — takes full remaining height */}
         <div className="lg:col-span-2 h-full min-h-0">
-          <VoiceChat onPlanGenerated={setPlan} />
+          <VoiceChat onPlanGenerated={setPlan} userLocation={userLocation} />
         </div>
 
         {/* Right: Map + Response Panel */}
         <div className="lg:col-span-3 relative h-full min-h-0 hidden lg:block">
           <div className="h-full overflow-hidden relative">
             <div className={`${activeView === 'map' ? 'block' : 'hidden'} h-full`}>
-              <GlobalMap plan={plan} />
+              <GlobalMap plan={plan} userLocation={userLocation} />
             </div>
             <div className={`${activeView === 'plan' ? 'block' : 'hidden'} h-full overflow-y-auto p-4`}>
               {plan ? (
@@ -86,19 +86,44 @@ export default function CommandCenter() {
                 </div>
               )}
             </div>
+            <div className={`${activeView === 'locations' ? 'block' : 'hidden'} h-full`}>
+              <LocationManager />
+            </div>
           </div>
 
-          {/* Toggle Map / Plan */}
-          <button
-            onClick={() => setActiveView(activeView === 'map' ? 'plan' : 'map')}
-            className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-5 py-2.5 rounded-full font-head text-sm bg-primary text-primary-foreground border-2 border-black shadow-md hover:shadow-sm hover:translate-y-0.5 active:shadow-none active:translate-y-1 transition-all"
-          >
-            {activeView === 'map' ? (
-              <><List className="w-4 h-4" /> View Plan</>
-            ) : (
-              <><Globe2 className="w-4 h-4" /> View Map</>
-            )}
-          </button>
+          {/* View toggle buttons */}
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 bg-background/90 backdrop-blur-sm rounded-full p-1 border-2 border-black shadow-md">
+            <button
+              onClick={() => setActiveView('map')}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-full font-head text-xs transition-all ${
+                activeView === 'map'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Globe2 className="w-3.5 h-3.5" /> Map
+            </button>
+            <button
+              onClick={() => setActiveView('plan')}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-full font-head text-xs transition-all ${
+                activeView === 'plan'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <List className="w-3.5 h-3.5" /> Plan
+            </button>
+            <button
+              onClick={() => setActiveView('locations')}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-full font-head text-xs transition-all ${
+                activeView === 'locations'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <MapPin className="w-3.5 h-3.5" /> Locations
+            </button>
+          </div>
         </div>
       </div>
     </>

@@ -7,7 +7,6 @@ import EmptyBoxState from './EmptyBoxState';
 import FinalUi from './FinalUi';
 import FloodResponsePanel from './FloodResponsePanel';
 import { useVapiVoice } from '@/hooks/useVapiVoice';
-import { useGeolocation } from '@/hooks/useGeolocation';
 import { toast } from 'sonner';
 import type { FloodResponsePlan } from './types';
 
@@ -20,6 +19,8 @@ const SCROLL_DELAY_MS = 60;
 
 interface VoiceChatProps {
   onPlanGenerated?: (plan: FloodResponsePlan) => void;
+  /** Location detected via GeolocationPrompt, saved in DB, passed down from page */
+  userLocation?: { lat: number; lng: number; city: string } | null;
 }
 
 /**
@@ -38,7 +39,7 @@ interface VoiceChatProps {
  *   3. When n8n returns ui:"final", Generate button appears
  *   4. Same step 4-5 as above
  */
-function VoiceChat({ onPlanGenerated }: VoiceChatProps) {
+function VoiceChat({ onPlanGenerated, userLocation }: VoiceChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [userInput, setUserInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -49,7 +50,10 @@ function VoiceChat({ onPlanGenerated }: VoiceChatProps) {
   const [showGenerateButton, setShowGenerateButton] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const { userLocation } = useGeolocation();
+  // Build location payload for AI agent calls
+  const aiLocationPayload = userLocation
+    ? { latitude: userLocation.lat, longitude: userLocation.lng, placeName: userLocation.city }
+    : undefined;
   const {
     isCallActive,
     isConnecting,
@@ -125,7 +129,7 @@ function VoiceChat({ onPlanGenerated }: VoiceChatProps) {
         messages: conversation,
         isFinal: false,
         isFollowUp: isPostPlan,
-        user_location: userLocation ? { latitude: userLocation.latitude, longitude: userLocation.longitude } : undefined,
+        user_location: aiLocationPayload,
       });
 
       const assistantMsg: Message = {
@@ -151,7 +155,7 @@ function VoiceChat({ onPlanGenerated }: VoiceChatProps) {
     } finally {
       setLoading(false);
     }
-  }, [loading, messages, scrollToBottom, isPostPlan, onPlanGenerated, userLocation]);
+  }, [loading, messages, scrollToBottom, isPostPlan, onPlanGenerated, aiLocationPayload]);
 
   const handleSend = useCallback(() => sendMessage(userInput), [sendMessage, userInput]);
   const handleSuggestionClick = useCallback((s: string) => sendMessage(s), [sendMessage]);
@@ -174,7 +178,7 @@ function VoiceChat({ onPlanGenerated }: VoiceChatProps) {
       const res = await axios.post('/api/ai-agent', {
         messages: conversation,
         isFinal: true,
-        user_location: userLocation ? { latitude: userLocation.latitude, longitude: userLocation.longitude } : undefined,
+        user_location: aiLocationPayload,
       });
       const data: FloodResponsePlan = res.data?.flood_response ?? res.data;
 
@@ -200,7 +204,7 @@ function VoiceChat({ onPlanGenerated }: VoiceChatProps) {
     } finally {
       setGeneratingPlan(false);
     }
-  }, [messages, generatingPlan, onPlanGenerated, userLocation]);
+  }, [messages, generatingPlan, onPlanGenerated, aiLocationPayload]);
 
   const handleVoiceButton = useCallback(async () => {
     if (isCallActive) {

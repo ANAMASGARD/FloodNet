@@ -92,20 +92,4 @@ export interface FloodResponsePlan {
   route_polyline?: [number, number][];
   risk_level?: string;
   perplexity_context?: string;
-  zynd_network?: ZyndNetworkInfo;
-}
-
-export interface ZyndNetworkInfo {
-  agents_discovered_via_zynd: number;
-  coordinator_discovered: boolean;
-  coordinator_endpoint: string;
-  agents_called: string[];
-  paid_agent_used: boolean;
-  zynd_search_queries: string[];
-  mode: string;
-  zynd_services_used: {
-    publish: string;
-    search: string;
-    pay: string;
-  };
 }

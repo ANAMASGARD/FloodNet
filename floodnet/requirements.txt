@@ -1,9 +1,0 @@
-zyndai-agent
-langchain
-langchain-google-genai
-langchain-classic
-langchain-community
-langchain-core
-httpx
-requests
-python-dotenv

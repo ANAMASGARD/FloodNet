@@ -6,6 +6,7 @@ import type { FloodResponsePlan, FloodZone, SafeZone, RescueTeam, Hospital } fro
 
 interface Props {
   plan: FloodResponsePlan | null;
+  userLocation?: { lat: number; lng: number; city: string } | null;
 }
 
 const SEVERITY_COLOR: Record<string, string> = {
@@ -39,10 +40,11 @@ function popupHtml(title: string, details: string[]) {
   </div>`;
 }
 
-export default function GlobalMap({ plan }: Props) {
+export default function GlobalMap({ plan, userLocation }: Props) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const prevPlanRef = useRef<FloodResponsePlan | null>(null);
 
   const cleanupLayers = useCallback((map: mapboxgl.Map) => {
@@ -283,6 +285,32 @@ export default function GlobalMap({ plan }: Props) {
       renderPlan(map, isNewPlan);
     }
   }, [plan, renderPlan]);
+
+  // Fly to user location when detected (and no plan is active)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !userLocation) return;
+
+    // Remove previous user marker
+    userMarkerRef.current?.remove();
+
+    // Add a pulsing blue dot for the user's location
+    const el = document.createElement('div');
+    el.innerHTML = `<div style="width:18px;height:18px;border-radius:50%;background:#3B82F6;border:3px solid white;box-shadow:0 0 0 4px rgba(59,130,246,0.3),0 2px 8px rgba(0,0,0,0.3);animation:pulse-ring 2s ease-out infinite"></div>`;
+    const marker = new mapboxgl.Marker({ element: el.firstElementChild as HTMLElement })
+      .setLngLat([userLocation.lng, userLocation.lat])
+      .setPopup(
+        new mapboxgl.Popup({ offset: 12, closeButton: false, maxWidth: '200px' })
+          .setHTML(`<div style="font-family:Space Grotesk,system-ui;padding:6px;"><strong style="font-size:12px;">📍 ${userLocation.city}</strong><p style="font-size:10px;color:#666;margin:4px 0 0;">Your location</p></div>`)
+      )
+      .addTo(map);
+    userMarkerRef.current = marker;
+
+    // Only fly to user location if no plan is active
+    if (!plan) {
+      map.flyTo({ center: [userLocation.lng, userLocation.lat], zoom: 10, duration: 2500 });
+    }
+  }, [userLocation, plan]);
 
   const weatherBadge = plan?.weather_current ? (
     <div className="absolute top-4 right-14 bg-white/90 backdrop-blur border-2 border-black px-3 py-2 rounded-lg z-10 pointer-events-none shadow-md">

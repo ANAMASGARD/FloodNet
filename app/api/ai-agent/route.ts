@@ -2,32 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // ═══════════════════════════════════════════════════════════════════════
-//  FloodNet AI Agent — Multi-Agent Orchestration via Zynd Network
-//
-//  Architecture (scored on Zynd Publish / Search / Pay):
-//
-//  1. PUBLISH — 5 Python agents register on Zynd registry at startup
-//  2. SEARCH  — This route searches Zynd registry to discover agents
-//               The coordinator also searches Zynd for each sub-agent
-//  3. PAY     — Alert Dispatcher is a paid agent ($0.001 via x402)
+//  FloodNet AI Agent — Perplexity-Primary Orchestration
 //
 //  Flow:
-//    User input → Gemini conversation → extract location →
-//    Zynd Search (discover coordinator) → Coordinator orchestrates →
-//      Zynd Search (discover predictor) → call flood predictor
-//      Zynd Search (discover mapper)    → call zone mapper
-//      Zynd Search (discover planner)   → call rescue planner
-//      Zynd Search (discover alerter)   → call alert dispatcher (x402 PAID)
-//    → aggregate → return FloodResponsePlan → Mapbox visualization
-//
-//  Fallback: if Python agents aren't running, direct API calls + Gemini
+//    User input → Perplexity sonar conversation → extract location
+//    → Fetch OpenWeather + Google Places data in parallel
+//    → Perplexity sonar-pro synthesises plan (real-time web search)
+//    → Gemini 2.5 Flash fallback if Perplexity unavailable
+//    → Return FloodResponsePlan → Mapbox visualisation
 // ═══════════════════════════════════════════════════════════════════════
 
-const GEMINI_KEY = process.env.GEMINI_API_KEY || '';
-const PLACES_KEY = process.env.GOOGLE_PLACE_API_KEY || '';
-const OW_KEY = process.env.OPENWEATHER_API_KEY || '';
-const PPLX_KEY = process.env.PERPLEXITY_API_KEY || '';
-const ZYND_KEY = process.env.ZYND_API_KEY || '';
+const GEMINI_KEY  = process.env.GEMINI_API_KEY        || '';
+const PLACES_KEY  = process.env.GOOGLE_PLACE_API_KEY  || '';
+const OW_KEY      = process.env.OPENWEATHER_API_KEY   || '';
+const PPLX_KEY    = process.env.PERPLEXITY_API_KEY    || '';
 
 const genAI = new GoogleGenerativeAI(GEMINI_KEY);
 
@@ -42,21 +30,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Messages must be an array' }, { status: 400 });
     }
 
-    if (!GEMINI_KEY) {
-      return NextResponse.json({
-        resp: 'GEMINI_API_KEY is not configured. Please set it in .env.',
-        ui: 'none',
-      });
-    }
-
     const validated = validateMessages(messages);
     const locationContext =
-      user_location && typeof user_location.latitude === 'number' && typeof user_location.longitude === 'number'
-        ? { latitude: user_location.latitude, longitude: user_location.longitude, placeName: user_location.placeName }
+      user_location &&
+      typeof user_location.latitude  === 'number' &&
+      typeof user_location.longitude === 'number'
+        ? {
+            latitude:  user_location.latitude  as number,
+            longitude: user_location.longitude as number,
+            placeName: user_location.placeName as string | undefined,
+          }
         : null;
 
     if (isFinal) {
-      console.log('[FloodNet] Generating flood response plan via Zynd multi-agent network…', locationContext ? '(with user location)' : '');
+      console.log('[FloodNet] Generating flood response plan…', locationContext ? '(with user location)' : '');
       return await generateFloodPlan(validated, locationContext);
     }
 
@@ -68,7 +55,7 @@ export async function POST(req: NextRequest) {
 
     if (msg.includes('429') || msg.includes('quota') || msg.includes('Too Many Requests')) {
       return NextResponse.json({
-        resp: 'Gemini API quota temporarily exceeded. Please wait 30 seconds and try again.',
+        resp: 'AI quota temporarily exceeded. Please wait 30 seconds and try again.',
         ui: 'none',
       });
     }
@@ -80,139 +67,96 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// ═══════════════════════ CONVERSATION HANDLER ═══════════════════════
+// ═══════════════════════ SYSTEM PROMPTS ═══════════════════════════
 
 function buildConvoSystem(userLocation: { latitude: number; longitude: number; placeName?: string } | null): string {
-  const locationLine =
-    userLocation != null
-      ? `\nUSER'S CURRENT DEVICE LOCATION (from browser): latitude ${userLocation.latitude}, longitude ${userLocation.longitude}${userLocation.placeName ? ` (approx. ${userLocation.placeName})` : ''}. If the user says "here", "my location", "current location", or "where I am", use these coordinates as the flood location. You can say "I have your current location. Is the flood at your current location or somewhere else?" and then proceed.\n`
-      : '';
+  const locationLine = userLocation
+    ? `\nUSER'S DEVICE LOCATION (from browser GPS): lat ${userLocation.latitude}, lng ${userLocation.longitude}${userLocation.placeName ? ` (approx. ${userLocation.placeName})` : ''}. If the user says "here", "my location", or "current location", use these coordinates.\n`
+    : '';
 
   return `You are FloodNet Command Center AI — an emergency flood response coordinator.
 
 Your job: gather critical information through natural conversation.
 ${locationLine}
 Information needed:
-1. LOCATION — Where is the flood? (city, district, area, or "here" = user's current device location)
-2. SEVERITY — critical | high | moderate | low (water levels, people trapped)
-3. EMERGENCY TYPE — rescue, evacuation, medical, supply_delivery, prediction, or mixed
+1. LOCATION — Where is the flood? (city, district, or "here" = user's GPS location above)
+2. SEVERITY — critical | high | moderate | low
+3. EMERGENCY TYPE — rescue | evacuation | medical | supply_delivery | prediction | mixed
 
 Rules:
-- Keep responses SHORT (2-3 sentences max). One question at a time.
-- Be calm, professional, empathetic. Reply in the user's language (English/Hindi/mixed).
-- If user_location was provided and user says "here" or "my location", treat that as location collected.
-- Once you have location + severity + emergency type → set ui to "final"
+- Keep responses SHORT (2–3 sentences). One question at a time.
+- Be calm, professional, empathetic. Reply in the user's language.
+- Once all 3 pieces are collected → set ui to "final"
 - Otherwise set ui to "none"
 
-You MUST respond with ONLY this JSON — no markdown, no extra text:
-{"resp": "your response", "ui": "none" or "final"}`;
+Respond with ONLY this JSON — no markdown, no extra text:
+{"resp": "your response", "ui": "none" | "final"}`;
 }
 
 const FOLLOWUP_SYSTEM = `You are FloodNet AI. A flood response plan has already been generated.
-The user is asking follow-up questions about the plan or the flood situation.
-Answer helpfully and concisely in the user's language.
-You MUST respond with ONLY this JSON — no markdown:
+Answer follow-up questions helpfully and concisely in the user's language.
+Respond with ONLY this JSON:
 {"resp": "your response", "ui": "none"}`;
+
+// ═══════════════════════ CONVERSATION HANDLER ═══════════════════════
 
 async function handleConversation(
   messages: { role: string; content: string }[],
   isFollowUp: boolean,
   userLocation: { latitude: number; longitude: number; placeName?: string } | null,
 ) {
+  const systemPrompt = isFollowUp ? FOLLOWUP_SYSTEM : buildConvoSystem(userLocation);
+
+  // ── Primary: Perplexity sonar ──
+  if (PPLX_KEY) {
+    try {
+      const r = await fetch('https://api.perplexity.ai/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${PPLX_KEY}` },
+        body: JSON.stringify({
+          model: 'sonar',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...messages.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+          ],
+          response_format: { type: 'json_object' },
+          max_tokens: 256,
+          temperature: 0.4,
+        }),
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (r.ok) {
+        const data: any = await r.json();
+        const text: string = data.choices?.[0]?.message?.content ?? '';
+        try { return NextResponse.json(JSON.parse(text)); }
+        catch { return NextResponse.json({ resp: text, ui: 'none' }); }
+      }
+      console.warn('[FloodNet] Perplexity conversation returned', r.status, '— falling back to Gemini');
+    } catch (e) {
+      console.warn('[FloodNet] Perplexity conversation failed, falling back to Gemini:', (e as Error).message);
+    }
+  }
+
+  // ── Fallback: Gemini 2.5 Flash ──
+  if (!GEMINI_KEY) {
+    return NextResponse.json({ resp: 'AI service not configured. Please set PERPLEXITY_API_KEY or GEMINI_API_KEY.', ui: 'none' });
+  }
   const model = genAI.getGenerativeModel({
     model: 'gemini-2.5-flash',
     generationConfig: { responseMimeType: 'application/json' },
   });
-
-  const systemPrompt = isFollowUp ? FOLLOWUP_SYSTEM : buildConvoSystem(userLocation);
   const conversationText = messages
-    .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+    .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
     .join('\n');
-
   const result = await model.generateContent(
     `${systemPrompt}\n\nConversation so far:\n${conversationText}\n\nRespond:`,
   );
   const text = result.response.text();
-
-  try {
-    const parsed = JSON.parse(text);
-    return NextResponse.json(parsed);
-  } catch {
-    return NextResponse.json({ resp: text, ui: 'none' });
-  }
+  try { return NextResponse.json(JSON.parse(text)); }
+  catch { return NextResponse.json({ resp: text, ui: 'none' }); }
 }
 
-// ═══════════════════════ ZYND NETWORK LAYER ═══════════════════════
 
-interface ZyndAgent {
-  name: string;
-  description: string;
-  endpoint: string;
-  httpWebhookUrl?: string;
-  capabilities?: any;
-  price?: string;
-}
-
-async function searchZyndRegistry(query: string, limit = 5): Promise<ZyndAgent[]> {
-  if (!ZYND_KEY) return [];
-  try {
-    const url = new URL('https://registry.zynd.ai/agents/search');
-    url.searchParams.set('q', query);
-    url.searchParams.set('limit', String(limit));
-
-    const r = await fetch(url.toString(), {
-      headers: { Authorization: `Bearer ${ZYND_KEY}` },
-      signal: AbortSignal.timeout(5000),
-    });
-
-    if (!r.ok) return [];
-    const data = await r.json();
-    return data.agents || data.results || [];
-  } catch (e) {
-    console.warn('[Zynd Search] Failed:', e);
-    return [];
-  }
-}
-
-function buildSyncUrl(endpoint: string): string {
-  const base = endpoint.replace(/\/+$/, '');
-  if (base.includes('/webhook/sync')) return base;
-  if (base.endsWith('/webhook')) return base + '/sync';
-  return base + '/webhook/sync';
-}
-
-async function callZyndAgent(
-  endpoint: string,
-  payload: any,
-  timeoutMs = 60000,
-): Promise<any> {
-  const syncUrl = buildSyncUrl(endpoint);
-
-  const message = {
-    content: typeof payload === 'string' ? payload : JSON.stringify(payload),
-    sender_id: 'floodnet-web-client',
-    message_type: 'query',
-    message_id: `web-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    timestamp: new Date().toISOString(),
-  };
-
-  const r = await fetch(syncUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(message),
-    signal: AbortSignal.timeout(timeoutMs),
-  });
-
-  if (!r.ok) throw new Error(`Agent returned ${r.status}`);
-
-  const data = await r.json();
-  const resp = data.response || data.resp || data;
-
-  if (typeof resp === 'string') {
-    try { return JSON.parse(resp); } catch { return resp; }
-  }
-  return resp;
-}
 
 // ═══════════════════════ PLAN GENERATION ═══════════════════════
 
@@ -284,286 +228,166 @@ async function generateFloodPlan(
   const language = detectLanguage(messages);
   console.log('[FloodNet] Location:', loc.location, `(${loc.lat}, ${loc.lng})`);
 
-  // ─── PHASE 1: Zynd Multi-Agent Network ───────────────────────────
-  //
-  //  Search Zynd registry for the coordinator agent.
-  //  The coordinator will internally:
-  //    1. Zynd Search → discover flood predictor → call it
-  //    2. Zynd Search → discover zone mapper → call it
-  //    3. Zynd Search → discover rescue planner → call it
-  //    4. Zynd Search → discover alert dispatcher → PAID call (x402)
-  //
-  //  This demonstrates all 3 Zynd services: Publish, Search, Pay.
-
-  let coordinatorResult: any = null;
-  const zyndMeta = {
-    agents_discovered_via_zynd: 0,
-    coordinator_discovered: false,
-    coordinator_endpoint: '',
-    agents_called: [] as string[],
-    paid_agent_used: false,
-    zynd_search_queries: [] as string[],
-    mode: 'direct-fallback' as string,
-  };
-
-  try {
-    console.log('[FloodNet] Phase 1: Searching Zynd registry for FloodNet agents…');
-
-    // Search 1: discover all floodnet agents (proves Zynd Search)
-    const allAgents = await searchZyndRegistry('floodnet flood prediction zone mapping rescue alert');
-    zyndMeta.agents_discovered_via_zynd = allAgents.length;
-    zyndMeta.zynd_search_queries.push('floodnet flood prediction zone mapping rescue alert');
-
-    if (allAgents.length > 0) {
-      console.log(`[FloodNet] Discovered ${allAgents.length} agents on Zynd:`,
-        allAgents.map((a: ZyndAgent) => a.name));
-    }
-
-    // Search 2: discover coordinator specifically
-    const coordinators = await searchZyndRegistry('floodnet coordinator orchestrator', 1);
-    zyndMeta.zynd_search_queries.push('floodnet coordinator orchestrator');
-
-    let coordinatorEndpoint = `http://localhost:5000`;
-    if (coordinators.length > 0) {
-      const c = coordinators[0];
-      coordinatorEndpoint = c.endpoint || c.httpWebhookUrl || coordinatorEndpoint;
-      zyndMeta.coordinator_discovered = true;
-      zyndMeta.coordinator_endpoint = coordinatorEndpoint;
-      console.log(`[FloodNet] Coordinator discovered via Zynd: ${coordinatorEndpoint}`);
-    } else if (process.env.COORDINATOR_URL) {
-      coordinatorEndpoint = process.env.COORDINATOR_URL;
-      console.log(`[FloodNet] Using COORDINATOR_URL (Railway/Vercel): ${coordinatorEndpoint}`);
-    } else if (process.env.BASE_AGENT_HOST) {
-      const base = process.env.BASE_AGENT_HOST;
-      coordinatorEndpoint = base.startsWith('http') && !base.includes('localhost') ? base : `${base.replace(/\/$/, '')}:5000`;
-    }
-
-    // Call the coordinator with the flood query
-    const userQuery = messages[messages.length - 1].content;
-    console.log('[FloodNet] Calling coordinator agent…');
-
-    coordinatorResult = await callZyndAgent(coordinatorEndpoint, {
-      query: userQuery,
-      language,
-      lat: loc.lat,
-      lng: loc.lng,
-      intent: loc.emergency_type === 'evacuation' ? 'evacuation_help' : 'risk_check',
-    }, 90000);
-
-    zyndMeta.agents_called = coordinatorResult?.agents_called || [
-      'call_flood_predictor', 'call_zone_mapper',
-      'call_rescue_planner', 'call_alert_dispatcher',
-    ];
-    zyndMeta.paid_agent_used = coordinatorResult?.zynd_network?.paid_agent_used ?? true;
-    zyndMeta.mode = 'zynd-multi-agent';
-
-    console.log('[FloodNet] Coordinator returned:', {
-      risk: coordinatorResult?.risk_level,
-      agents: zyndMeta.agents_called,
-      paid: zyndMeta.paid_agent_used,
-    });
-  } catch (e: any) {
-    console.warn(`[FloodNet] Zynd coordinator unavailable (${e.message}). Falling back to direct APIs.`);
-  }
-
-  // ─── PHASE 2: Direct API calls (enrichment + fallback) ────────────
-
-  console.log('[FloodNet] Phase 2: Direct API calls for data enrichment…');
-
-  const [weatherR, dischargeR, sheltersR, hospitalsR, owR, newsR] = await Promise.allSettled([
+  // ─── Parallel data fetches ───────────────────────────────────────
+  const [weatherR, dischargeR, sheltersR, hospitalsR, owR] = await Promise.allSettled([
     fetchWeatherForecast(loc.lat, loc.lng),
     fetchRiverDischarge(loc.lat, loc.lng),
     fetchShelters(loc.lat, loc.lng),
     fetchHospitals(loc.lat, loc.lng),
     fetchCurrentWeather(loc.lat, loc.lng),
-    fetchFloodNews(loc.location),
   ]);
 
-  const weather = weatherR.status === 'fulfilled' ? weatherR.value : null;
-  const discharge = dischargeR.status === 'fulfilled' ? dischargeR.value : null;
-  const shelters = sheltersR.status === 'fulfilled' ? sheltersR.value : [];
-  const hospitals = hospitalsR.status === 'fulfilled' ? hospitalsR.value : [];
-  const currentWeather = owR.status === 'fulfilled' ? owR.value : null;
-  const floodNews = newsR.status === 'fulfilled' ? newsR.value : '';
+  const weather       = weatherR.status       === 'fulfilled' ? weatherR.value       : null;
+  const discharge     = dischargeR.status     === 'fulfilled' ? dischargeR.value     : null;
+  const shelters      = sheltersR.status      === 'fulfilled' ? sheltersR.value      : [];
+  const hospitals     = hospitalsR.status     === 'fulfilled' ? hospitalsR.value     : [];
+  const currentWeather = owR.status           === 'fulfilled' ? owR.value            : null;
 
   let routeData: any = null;
   if (shelters.length > 0) {
-    try {
-      routeData = await fetchEvacuationRoute(loc.lat, loc.lng, shelters[0].lat, shelters[0].lng);
-    } catch { /* graceful */ }
+    try { routeData = await fetchEvacuationRoute(loc.lat, loc.lng, shelters[0].lat, shelters[0].lng); }
+    catch { /* graceful */ }
   }
 
   const heatmapPoints = generateHeatmapPoints(loc.lat, loc.lng, weather, discharge);
-  const riskLevel = calculateRiskLevel(weather, discharge);
+  const riskLevel     = calculateRiskLevel(weather, discharge);
+  const dataBundle    = { weather, discharge, shelters, hospitals, currentWeather, floodNews: '', routeData, heatmapPoints, riskLevel };
 
-  // ─── PHASE 3: Build final plan ──────────────────────────────────
-
+  // ─── Plan synthesis: Perplexity sonar-pro (primary) → Gemini (fallback) ─
   let plan: any;
-
-  if (coordinatorResult && typeof coordinatorResult === 'object' && coordinatorResult.status === 'ok') {
-    console.log('[FloodNet] Phase 3: Transforming Zynd coordinator response…');
-    plan = transformCoordinatorResponse(coordinatorResult, loc);
-  } else {
-    console.log('[FloodNet] Phase 3: Synthesizing plan with Gemini (fallback)…');
-    plan = await synthesizePlan(loc, {
-      weather, discharge, shelters, hospitals,
-      currentWeather, floodNews, routeData,
-      heatmapPoints, riskLevel,
-    }, messages);
+  if (PPLX_KEY) {
+    try {
+      plan = await synthesizePlanPerplexity(loc, dataBundle, messages, language);
+      console.log('[FloodNet] Plan synthesised via Perplexity sonar-pro');
+    } catch (e) {
+      console.warn('[FloodNet] Perplexity synthesis failed, falling back to Gemini:', (e as Error).message);
+    }
+  }
+  if (!plan) {
+    plan = await synthesizePlanGemini(loc, dataBundle, messages);
+    console.log('[FloodNet] Plan synthesised via Gemini 2.5 Flash (fallback)');
   }
 
-  // ─── PHASE 4: Enrich with real API data (so map always has zones/shelters/hospitals/heatmap) ───
-
+  // ─── Ensure all map-visible fields are populated ─────────────────
   if (!plan.heatmap_points?.length) plan.heatmap_points = heatmapPoints;
-  if (!plan.risk_level) plan.risk_level = riskLevel;
+  if (!plan.risk_level)             plan.risk_level = riskLevel;
   plan.weather_current = currentWeather || plan.weather_current;
-  plan.perplexity_context = floodNews || plan.perplexity_context;
 
   plan.hospitals = hospitals.map((h: any) => ({
-    name: h.name,
-    address: h.address,
+    name: h.name, address: h.address,
     geo_coordinates: { latitude: h.lat, longitude: h.lng },
-    distance_km: h.distance_km,
-    open_now: h.open_now,
-    at_risk: h.at_risk,
+    distance_km: h.distance_km, open_now: h.open_now, at_risk: h.at_risk,
   }));
 
-  // Ensure safe_zones so map shows shelters (coordinator or Gemini may return empty)
   if (!plan.safe_zones?.length) {
-    if (shelters.length > 0) {
-      plan.safe_zones = shelters.slice(0, 6).map((s: any) => ({
-        name: s.name || 'Shelter',
-        geo_coordinates: { latitude: s.lat, longitude: s.lng },
-        capacity: 500,
-        current_occupancy: 0,
-        specialty: 'General Relief',
-        eta_minutes: 15,
-      }));
-    } else {
-      // No Google Places data: add one nominal safe zone near location so map shows a shelter marker
-      plan.safe_zones = [{
-        name: 'Nearest designated shelter',
-        geo_coordinates: { latitude: loc.lat + 0.008, longitude: loc.lng + 0.006 },
-        capacity: 500,
-        current_occupancy: 0,
-        specialty: 'General Relief',
-        eta_minutes: 15,
-      }];
-    }
+    plan.safe_zones = shelters.length > 0
+      ? shelters.slice(0, 6).map((s: any) => ({
+          name: s.name || 'Shelter',
+          geo_coordinates: { latitude: s.lat, longitude: s.lng },
+          capacity: 500, current_occupancy: 0, specialty: 'General Relief', eta_minutes: 15,
+        }))
+      : [{ name: 'Nearest designated shelter', geo_coordinates: { latitude: loc.lat + 0.008, longitude: loc.lng + 0.006 }, capacity: 500, current_occupancy: 0, specialty: 'General Relief', eta_minutes: 15 }];
   }
   if (!Array.isArray(plan.safe_zones)) plan.safe_zones = [];
 
-  // Ensure at least one flood zone so map shows a zone marker (coordinator or Gemini may return empty)
   if (!plan.flood_zones?.length) {
     plan.flood_zones = [{
       zone_name: `${loc.location} (primary)`,
       severity: (plan.risk_level || riskLevel || 'moderate').toLowerCase() as 'critical' | 'high' | 'moderate' | 'low',
       geo_coordinates: { latitude: loc.lat, longitude: loc.lng },
-      water_level_m: 1.5,
-      affected_population: 5000,
+      water_level_m: 1.5, affected_population: 5000,
       description: 'AI-assessed flood risk area based on weather and river discharge.',
     }];
   }
-  if (!Array.isArray(plan.flood_zones)) plan.flood_zones = [];
-  if (!Array.isArray(plan.rescue_teams)) plan.rescue_teams = [];
+  if (!Array.isArray(plan.flood_zones))      plan.flood_zones = [];
+  if (!Array.isArray(plan.rescue_teams))     plan.rescue_teams = [];
   if (!Array.isArray(plan.evacuation_routes)) plan.evacuation_routes = [];
 
   if (routeData?.polyline_coords?.length && !plan.route_polyline?.length) {
     plan.route_polyline = routeData.polyline_coords;
   }
 
-  // ─── PHASE 5: Zynd network metadata (for judges) ───────────────
-
-  plan.zynd_network = {
-    agents_discovered_via_zynd: zyndMeta.agents_discovered_via_zynd,
-    coordinator_discovered: zyndMeta.coordinator_discovered,
-    coordinator_endpoint: zyndMeta.coordinator_endpoint,
-    agents_called: zyndMeta.agents_called,
-    paid_agent_used: zyndMeta.paid_agent_used,
-    zynd_search_queries: zyndMeta.zynd_search_queries,
-    mode: zyndMeta.mode,
-    zynd_services_used: {
-      publish: '5 agents registered on Zynd registry at startup',
-      search: `${zyndMeta.zynd_search_queries.length} Zynd Search queries + coordinator searches for each sub-agent`,
-      pay: zyndMeta.paid_agent_used
-        ? 'Alert Dispatcher paid $0.001 USDC via x402 protocol'
-        : 'x402 payment configured on Alert Dispatcher ($0.001)',
-    },
-  };
-
   return NextResponse.json({ flood_response: plan });
 }
 
-// ═══════════════════ COORDINATOR RESPONSE TRANSFORMER ═══════════════
+// ═══════════════════ PERPLEXITY PLAN SYNTHESIS (PRIMARY) ═══════════
 
-function transformCoordinatorResponse(coord: any, loc: LocationInfo) {
-  const floodZones = (coord.flood_risk_zones || []).map((z: any, i: number) => ({
-    zone_name: z.name || z.zone_id || `Flood Zone ${i + 1}`,
-    severity: (z.severity || 'moderate').toLowerCase(),
-    geo_coordinates: {
-      latitude: z.center_lat || loc.lat + (Math.random() - 0.5) * 0.02,
-      longitude: z.center_lng || loc.lng + (Math.random() - 0.5) * 0.02,
-    },
-    water_level_m: z.water_level_m || (coord.max_rain_mm ? coord.max_rain_mm / 20 : 1.5),
-    affected_population: z.estimated_population || 5000,
-    description: z.reason || '',
-  }));
+async function synthesizePlanPerplexity(
+  loc: LocationInfo,
+  data: { weather: any; discharge: any; shelters: any[]; hospitals: any[]; currentWeather: any; floodNews: string; routeData: any; heatmapPoints: any[]; riskLevel: string },
+  messages: { role: string; content: string }[],
+  language: string,
+) {
+  const p0 = data.weather?.daily?.precipitation_sum?.[0] ?? 0;
+  const p1 = data.weather?.daily?.precipitation_sum?.[1] ?? 0;
+  const p2 = data.weather?.daily?.precipitation_sum?.[2] ?? 0;
+  const ds = data.discharge?.daily?.river_discharge || [];
+  const maxD = ds.length > 0 ? Math.max(...ds.filter(Boolean)) : 0;
+  const convo = messages.map(m => `${m.role}: ${m.content}`).join('\n');
 
-  const safeZones = (coord.safe_shelters || []).map((s: any) => ({
-    name: s.name,
-    geo_coordinates: { latitude: s.lat, longitude: s.lng },
-    capacity: s.capacity || 500,
-    current_occupancy: s.current_occupancy || Math.floor(Math.random() * 200),
-    specialty: s.type || 'General Relief',
-    eta_minutes: s.eta_minutes || 15,
-  }));
+  const systemPrompt = `You are FloodNet AI Planner. Search the web for CURRENT flood conditions in the specified location, then combine with the provided API data to create a complete, accurate flood response plan.
+Return ONLY valid JSON matching the schema exactly — no prose, no markdown.`;
 
-  const evacRoutes = coord.primary_route ? [{
-    route_name: `Route to ${coord.primary_route.shelter_name || 'nearest shelter'}`,
-    from: { latitude: loc.lat, longitude: loc.lng },
-    to: {
-      latitude: coord.primary_route.to_lat || loc.lat,
-      longitude: coord.primary_route.to_lng || loc.lng,
-    },
-    distance_km: coord.primary_route.distance_km || 0,
-    estimated_time_minutes: coord.primary_route.eta_minutes || 0,
-    status: (coord.primary_route.traffic_condition === 'HEAVY' ? 'partial' : 'clear') as 'clear' | 'partial' | 'blocked',
-  }] : [];
+  const userPrompt = `LOCATION: ${loc.location} (lat ${loc.lat}, lng ${loc.lng})
+SEVERITY: ${loc.severity} | TYPE: ${loc.emergency_type} | NEEDS: ${loc.needs.join(', ')}
+LANGUAGE: ${language}
 
-  const actions = (coord.alerts || []).map((a: any, i: number) => ({
-    step: i + 1,
-    title: a.title || `Action ${i + 1}`,
-    description: a.body || '',
-    priority: (a.severity?.toLowerCase() === 'critical' ? 'critical' : 'high') as 'critical' | 'high' | 'medium',
-  }));
+REAL-TIME DATA:
+- OpenWeather: ${data.currentWeather ? JSON.stringify(data.currentWeather) : 'N/A'}
+- Precipitation (Open-Meteo, mm): Day0=${p0}, Day1=${p1}, Day2=${p2}
+- River Discharge (max ${maxD} m³/s) | Calculated Risk: ${data.riskLevel.toUpperCase()}
+- Shelters (Google Places): ${JSON.stringify(data.shelters.slice(0, 4))}
+- Hospitals nearby: ${JSON.stringify(data.hospitals.slice(0, 4))}
+- Route to nearest shelter: ${data.routeData ? `${data.routeData.distance_km}km, ${data.routeData.eta_minutes}min, traffic=${data.routeData.traffic}` : 'N/A'}
+- Conversation: ${convo}
 
-  const routePolyline = coord.primary_route?.polyline
-    ? decodePolyline(coord.primary_route.polyline)
-    : undefined;
+TASK: Search the web NOW for current flood news, government advisories, rescue operations, and road closures in ${loc.location}. Combine that with the provided data to generate the plan.
 
-  const heatmapPoints = (coord.heatmap_points || []).map((p: any) => ({
-    latitude: p.lat ?? p.latitude,
-    longitude: p.lng ?? p.longitude,
-    intensity: p.intensity,
-  }));
+Return this exact JSON schema:
+{
+  "location": "${loc.location}",
+  "severity": "${data.riskLevel}",
+  "emergency_type": "${loc.emergency_type}",
+  "summary": "<4-5 sentences using real searched + API data>",
+  "perplexity_context": "<3-4 sentences of web-searched current flood intelligence>",
+  "center_coordinates": {"latitude": ${loc.lat}, "longitude": ${loc.lng}},
+  "flood_zones": [{"zone_name": "str", "severity": "critical|high|moderate|low", "geo_coordinates": {"latitude": 0.0, "longitude": 0.0}, "water_level_m": 0.0, "affected_population": 0, "description": "str"}],
+  "safe_zones": [{"name": "str", "geo_coordinates": {"latitude": 0.0, "longitude": 0.0}, "capacity": 0, "current_occupancy": 0, "specialty": "str", "eta_minutes": 0}],
+  "rescue_teams": [{"team_id": "str", "team_name": "str", "status": "deployed|standby|en_route", "geo_coordinates": {"latitude": 0.0, "longitude": 0.0}, "equipment": ["str"], "eta_minutes": 0}],
+  "evacuation_routes": [{"route_name": "str", "from": {"latitude": ${loc.lat}, "longitude": ${loc.lng}}, "to": {"latitude": 0.0, "longitude": 0.0}, "distance_km": 0.0, "estimated_time_minutes": 0, "status": "clear|partial|blocked"}],
+  "immediate_actions": [{"step": 1, "title": "str", "description": "str", "priority": "critical|high|medium"}],
+  "resource_needs": [{"item": "str", "quantity": "str", "urgency": "immediate|within_hours|within_day"}],
+  "disclaimer": "AI-generated plan. Verify with local emergency management authorities."
+}`;
 
-  return {
-    location: loc.location,
-    severity: (coord.risk_level || loc.severity || 'moderate').toLowerCase(),
-    emergency_type: loc.emergency_type,
-    summary: coord.coordinator_summary || '',
-    center_coordinates: { latitude: loc.lat, longitude: loc.lng },
-    flood_zones: floodZones,
-    safe_zones: safeZones,
-    rescue_teams: [],
-    evacuation_routes: evacRoutes,
-    immediate_actions: actions,
-    resource_needs: [],
-    heatmap_points: heatmapPoints,
-    risk_level: (coord.risk_level || 'moderate').toLowerCase(),
-    route_polyline: routePolyline,
-    disclaimer: 'AI-generated plan via Zynd multi-agent network. Verify with local authorities.',
-  };
+  const r = await fetch('https://api.perplexity.ai/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${PPLX_KEY}` },
+    body: JSON.stringify({
+      model: 'sonar-pro',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user',   content: userPrompt },
+      ],
+      response_format: { type: 'json_object' },
+      max_tokens: 4096,
+      temperature: 0.3,
+    }),
+    signal: AbortSignal.timeout(45_000),
+  });
+
+  if (!r.ok) throw new Error(`Perplexity sonar-pro returned ${r.status}`);
+
+  const apiData: any = await r.json();
+  const text: string = apiData.choices?.[0]?.message?.content ?? '';
+  const plan = JSON.parse(text);
+
+  plan.heatmap_points = data.heatmapPoints;
+  plan.risk_level     = data.riskLevel;
+  plan.weather_current = data.currentWeather;
+  if (data.routeData?.polyline_coords?.length) plan.route_polyline = data.routeData.polyline_coords;
+
+  return plan;
 }
 
 // ═══════════════════════ API FETCHERS ═══════════════════════
@@ -765,7 +589,7 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
 
 // ═══════════════════════ GEMINI PLAN SYNTHESIS (FALLBACK) ═══════════
 
-async function synthesizePlan(
+async function synthesizePlanGemini(
   loc: LocationInfo,
   data: { weather: any; discharge: any; shelters: any[]; hospitals: any[]; currentWeather: any; floodNews: string; routeData: any; heatmapPoints: any[]; riskLevel: string },
   messages: { role: string; content: string }[],
