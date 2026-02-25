@@ -29,7 +29,8 @@ function getOrCreateVapi(apiKey: string): Promise<any> {
   if (globalVapiInitPromise) return globalVapiInitPromise;
   globalVapiInitPromise = (async () => {
     const Vapi = (await import('@vapi-ai/web')).default;
-    globalVapi = new Vapi(apiKey);
+    // startAudioOff: false so the user can hear the assistant immediately
+    globalVapi = new Vapi(apiKey, undefined, undefined, { startAudioOff: false });
     return globalVapi;
   })();
   return globalVapiInitPromise;

@@ -8,6 +8,7 @@ import { Globe2, List, ArrowLeft, Waves, Network } from 'lucide-react';
 import Link from 'next/link';
 import type { FloodResponsePlan } from './_components/types';
 import { Toaster } from 'sonner';
+import { UserButton } from '@clerk/nextjs';
 
 export default function CommandCenter() {
   const [plan, setPlan] = useState<FloodResponsePlan | null>(null);
@@ -45,10 +46,18 @@ export default function CommandCenter() {
                 </span>
               </div>
             )}
+            <div className={`w-2 h-2 rounded-full ${plan ? 'bg-green-500' : 'bg-yellow-500'} pulse-dot`} />
             <span className="text-[10px] text-muted-foreground hidden md:inline">
               {plan ? `Active: ${plan.location}` : 'Awaiting report...'}
             </span>
-            <div className={`w-2 h-2 rounded-full ${plan ? 'bg-green-500' : 'bg-yellow-500'} pulse-dot`} />
+            <div className="w-px h-4 bg-border hidden md:block" />
+            <UserButton
+              appearance={{
+                elements: {
+                  avatarBox: 'w-7 h-7',
+                },
+              }}
+            />
           </div>
         </div>
       </header>

@@ -9,7 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@clerk/nextjs": "^6.38.1",
+    "@arcjet/inspect": "^1.1.0",
+    "@arcjet/next": "^1.1.0",
+    "@clerk/nextjs": "^6.38.2",
     "@google/generative-ai": "^0.24.1",
     "@gsap/react": "^2.1.2",
     "@headlessui/react": "^2.2.9",
