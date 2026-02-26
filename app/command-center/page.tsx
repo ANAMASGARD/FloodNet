@@ -6,7 +6,7 @@ import GlobalMap from './_components/GlobalMap';
 import FloodResponsePanel from './_components/FloodResponsePanel';
 import LocationManager from './_components/LocationManager';
 import GeolocationPrompt from './_components/GeolocationPrompt';
-import { Globe2, List, ArrowLeft, Waves, MapPin } from 'lucide-react';
+import { Globe2, List, ArrowLeft, Waves, MapPin, Radio } from 'lucide-react';
 import Link from 'next/link';
 import type { FloodResponsePlan } from './_components/types';
 import { Toaster } from 'sonner';
@@ -51,6 +51,13 @@ export default function CommandCenter() {
               {plan ? `Active: ${plan.location}` : 'Awaiting report...'}
             </span>
             <div className="w-px h-4 bg-border hidden md:block" />
+            <Link
+              href="/emergency"
+              className="hidden sm:flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-head px-3 py-1.5 rounded-lg transition-all"
+            >
+              <Radio className="w-3 h-3" />
+              🆘 SOS
+            </Link>
             <UserButton
               appearance={{
                 elements: {
@@ -64,7 +71,7 @@ export default function CommandCenter() {
 
       {/* Main Grid — chat fills full height */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 px-3 py-2 max-w-[1920px] mx-auto h-[calc(100vh-48px)] overflow-hidden">
-        {/* Left: VoiceChat — takes full remaining height */}
+        {/* Left: VoiceChat — full height */}
         <div className="lg:col-span-2 h-full min-h-0">
           <VoiceChat onPlanGenerated={setPlan} userLocation={userLocation} />
         </div>

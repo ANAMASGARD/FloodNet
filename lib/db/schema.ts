@@ -138,3 +138,35 @@ export const deliveryLogs = pgTable(
     index("idx_delivery_alert").on(table.alertEventId),
   ],
 );
+
+// ─── Rescue incidents (user-triggered SOS requests) ───────────────────────────
+export const rescueIncidents = pgTable(
+  "rescue_incidents",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    lat:  doublePrecision("lat").notNull(),
+    lng:  doublePrecision("lng").notNull(),
+    locationLabel: text("location_label"),
+    city:    text("city"),
+    country: text("country"),
+    description: text("description").notNull().default("Emergency rescue requested"),
+    severity: varchar("severity", { length: 20 }).default("high").notNull(),
+    // pending → dispatched | pending_no_contacts → resolved | cancelled
+    status: varchar("status", { length: 30 }).default("pending").notNull(),
+    userEmail: text("user_email").notNull(),
+    userName:  text("user_name"),
+    inngestEventId: text("inngest_event_id"),
+    authorityNotifiedAt: timestamp("authority_notified_at"),
+    resolvedAt:  timestamp("resolved_at"),
+    createdAt:   timestamp("created_at").defaultNow().notNull(),
+    updatedAt:   timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("idx_rescue_user").on(table.userId),
+    index("idx_rescue_status").on(table.status),
+    index("idx_rescue_created").on(table.createdAt),
+  ],
+);

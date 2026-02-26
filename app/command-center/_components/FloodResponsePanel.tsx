@@ -93,6 +93,13 @@ export default function FloodResponsePanel({ plan }: Props) {
                     </div>
                     <span className="text-[10px] text-muted-foreground">{zone.current_occupancy}/{zone.capacity}</span>
                   </div>
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${zone.geo_coordinates.latitude},${zone.geo_coordinates.longitude}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="inline-block mt-1.5 text-[10px] text-blue-600 dark:text-blue-400 hover:underline font-head"
+                  >
+                    🧭 Get directions
+                  </a>
                 </div>
               </div>
             ))}
@@ -188,6 +195,13 @@ export default function FloodResponsePanel({ plan }: Props) {
                     {h.distance_km} km away · {h.address}
                     {h.at_risk && ' · ⚠️ In flood zone'}
                   </p>
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${h.geo_coordinates.latitude},${h.geo_coordinates.longitude}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="inline-block mt-1 text-[10px] text-blue-600 dark:text-blue-400 hover:underline font-head"
+                  >
+                    🧭 Get directions
+                  </a>
                 </div>
               </div>
             ))}

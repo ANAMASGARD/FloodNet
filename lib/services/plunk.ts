@@ -105,3 +105,137 @@ export function buildFloodAlertEmail(params: {
 
   return { subject, body };
 }
+
+// ─── Rescue acknowledgement (sent to user on SOS submission) ───
+export function buildRescueAckEmail(params: {
+  userName: string;
+  incidentId: string;
+  lat: number;
+  lng: number;
+  city: string;
+}): { subject: string; body: string } {
+  const subject = `🆘 FloodNet — Rescue request received (Incident ${params.incidentId.slice(0, 8).toUpperCase()})`;
+  const mapsLink = `https://www.google.com/maps?q=${params.lat},${params.lng}`;
+
+  const body = `
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+      <div style="background:linear-gradient(135deg,#7f1d1d 0%,#dc2626 100%);padding:24px;border-radius:12px 12px 0 0;">
+        <h1 style="color:white;margin:0;font-size:24px;">🆘 Rescue Request Received</h1>
+        <p style="color:rgba(255,255,255,0.85);margin:8px 0 0;">FloodNet Emergency Response</p>
+      </div>
+      <div style="border:1px solid #e5e7eb;border-top:none;padding:24px;border-radius:0 0 12px 12px;">
+        <p style="margin:0 0 16px;">Hi ${params.userName},</p>
+        <div style="background:#fef2f2;border-left:4px solid #dc2626;padding:16px;border-radius:0 8px 8px 0;margin-bottom:20px;">
+          <p style="margin:0;font-weight:600;color:#dc2626;font-size:16px;">Your rescue request has been received</p>
+          <p style="margin:8px 0 0;color:#374151;">Incident ID: <strong>${params.incidentId.slice(0, 8).toUpperCase()}</strong></p>
+          <p style="margin:4px 0 0;color:#374151;">Location: ${params.city} (<a href="${mapsLink}" style="color:#dc2626;">View on map</a>)</p>
+        </div>
+        <h3 style="margin:0 0 8px;color:#111827;">What happens next</h3>
+        <ol style="color:#4b5563;line-height:1.8;margin:0 0 20px;padding-left:20px;">
+          <li>Your location and details have been forwarded to nearby emergency authorities</li>
+          <li>District relief teams and NGO partners have been notified</li>
+          <li>Keep this incident ID for follow-up: <strong>${params.incidentId.slice(0, 8).toUpperCase()}</strong></li>
+        </ol>
+        <div style="background:#fef9c3;border:1px solid #fde047;padding:12px 16px;border-radius:8px;margin-bottom:20px;">
+          <p style="margin:0;font-size:13px;color:#713f12;"><strong>⚠️ While you wait:</strong> Move to higher ground if possible. Signal for help. Stay visible to rescuers. Conserve phone battery.</p>
+        </div>
+        <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;" />
+        <p style="color:#9ca3af;font-size:12px;margin:0;">FloodNet AI Emergency Response · Coordinates: ${params.lat.toFixed(5)}, ${params.lng.toFixed(5)}</p>
+      </div>
+    </div>`;
+
+  return { subject, body };
+}
+
+// ─── Authority alert (sent to district authority / NGO on rescue request) ───
+export function buildAuthorityAlertEmail(params: {
+  incidentId: string;
+  userName: string;
+  userEmail: string;
+  lat: number;
+  lng: number;
+  city: string;
+  description: string;
+  severity: string;
+}): { subject: string; body: string } {
+  const severityColor: Record<string, string> = {
+    critical: "#dc2626", high: "#ef4444", moderate: "#f97316", low: "#22c55e",
+  };
+  const color = severityColor[params.severity] ?? "#ef4444";
+  const mapsLink = `https://www.google.com/maps?q=${params.lat},${params.lng}`;
+  const mapsNavLink = `https://www.google.com/maps/dir/?api=1&destination=${params.lat},${params.lng}`;
+
+  const subject = `🚨 RESCUE REQUEST — ${params.severity.toUpperCase()} — ${params.city} — Incident ${params.incidentId.slice(0, 8).toUpperCase()}`;
+
+  const body = `
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+      <div style="background:${color};padding:24px;border-radius:12px 12px 0 0;">
+        <h1 style="color:white;margin:0;font-size:22px;">🚨 EMERGENCY RESCUE REQUEST</h1>
+        <p style="color:rgba(255,255,255,0.9);margin:8px 0 0;font-size:14px;">FloodNet Automated Dispatch · Incident ${params.incidentId.slice(0, 8).toUpperCase()}</p>
+      </div>
+      <div style="border:1px solid #e5e7eb;border-top:none;padding:24px;border-radius:0 0 12px 12px;">
+        <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+          <tr><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;color:#6b7280;font-size:13px;width:140px;">Person in distress</td><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;font-weight:600;">${params.userName}</td></tr>
+          <tr><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;color:#6b7280;font-size:13px;">Contact email</td><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;">${params.userEmail}</td></tr>
+          <tr><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;color:#6b7280;font-size:13px;">Location</td><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;">${params.city} · ${params.lat.toFixed(5)}, ${params.lng.toFixed(5)}</td></tr>
+          <tr><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;color:#6b7280;font-size:13px;">Severity</td><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;"><span style="background:${color}20;color:${color};padding:2px 8px;border-radius:4px;font-weight:700;font-size:12px;">${params.severity.toUpperCase()}</span></td></tr>
+          <tr><td style="padding:8px 0;color:#6b7280;font-size:13px;">Description</td><td style="padding:8px 0;">${params.description}</td></tr>
+        </table>
+        <div style="display:flex;gap:12px;margin-bottom:20px;">
+          <a href="${mapsLink}" style="background:#1d4ed8;color:white;text-decoration:none;padding:10px 20px;border-radius:8px;font-weight:600;font-size:14px;">📍 View Location</a>
+          <a href="${mapsNavLink}" style="background:#16a34a;color:white;text-decoration:none;padding:10px 20px;border-radius:8px;font-weight:600;font-size:14px;">🧭 Navigate There</a>
+        </div>
+        <div style="background:#fef2f2;border:1px solid #fecaca;padding:12px 16px;border-radius:8px;">
+          <p style="margin:0;font-size:13px;color:#991b1b;"><strong>Action required:</strong> Please dispatch nearest available rescue team to the coordinates above immediately.</p>
+        </div>
+        <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;" />
+        <p style="color:#9ca3af;font-size:11px;margin:0;">FloodNet AI · Automated dispatch system · Do not reply to this email · Incident ID: ${params.incidentId}</p>
+      </div>
+    </div>`;
+
+  return { subject, body };
+}
+
+// ─── Auto-escalation (sent when AI detects extreme/high risk automatically) ───
+export function buildAutoEscalationEmail(params: {
+  city: string;
+  country: string;
+  lat: number;
+  lng: number;
+  riskLevel: string;
+  reasoning: string;
+  confidence: number;
+  assessmentId: string;
+}): { subject: string; body: string } {
+  const color = params.riskLevel === "extreme" ? "#dc2626" : "#f97316";
+  const mapsLink = `https://www.google.com/maps?q=${params.lat},${params.lng}`;
+  const confidencePct = Math.round(params.confidence * 100);
+
+  const subject = `⚠️ FloodNet AUTO-ALERT — ${params.riskLevel.toUpperCase()} flood risk detected in ${params.city}, ${params.country}`;
+
+  const body = `
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+      <div style="background:${color};padding:24px;border-radius:12px 12px 0 0;">
+        <h1 style="color:white;margin:0;font-size:22px;">⚠️ AI Flood Risk Auto-Alert</h1>
+        <p style="color:rgba(255,255,255,0.9);margin:8px 0 0;font-size:14px;">FloodNet Predictive Analysis · Assessment ${params.assessmentId.slice(0, 8).toUpperCase()}</p>
+      </div>
+      <div style="border:1px solid #e5e7eb;border-top:none;padding:24px;border-radius:0 0 12px 12px;">
+        <div style="background:${color}15;border-left:4px solid ${color};padding:16px;border-radius:0 8px 8px 0;margin-bottom:20px;">
+          <p style="margin:0;font-weight:700;color:${color};font-size:18px;">${params.riskLevel.toUpperCase()} Risk — ${params.city}, ${params.country}</p>
+          <p style="margin:6px 0 0;color:#374151;">Coordinates: ${params.lat.toFixed(4)}, ${params.lng.toFixed(4)} · AI Confidence: ${confidencePct}%</p>
+        </div>
+        <h3 style="margin:0 0 8px;color:#111827;">AI Risk Assessment</h3>
+        <p style="color:#4b5563;line-height:1.6;margin:0 0 20px;">${params.reasoning}</p>
+        <div style="margin-bottom:20px;">
+          <a href="${mapsLink}" style="background:#1d4ed8;color:white;text-decoration:none;padding:10px 20px;border-radius:8px;font-weight:600;font-size:14px;">📍 View Risk Area</a>
+        </div>
+        <div style="background:#fef9c3;border:1px solid #fde047;padding:12px 16px;border-radius:8px;margin-bottom:16px;">
+          <p style="margin:0;font-size:13px;color:#713f12;"><strong>Recommended:</strong> Pre-position rescue assets, issue public advisories, and alert downstream municipalities in the affected region.</p>
+        </div>
+        <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;" />
+        <p style="color:#9ca3af;font-size:11px;margin:0;">This is an automated alert from FloodNet AI predictive analysis. No persons have reported distress at this time — this is a preventive notification based on weather data and AI risk scoring.</p>
+      </div>
+    </div>`;
+
+  return { subject, body };
+}

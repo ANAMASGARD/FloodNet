@@ -76,6 +76,12 @@ export default function LandingPage() {
             <Button variant="ghost" size="sm" onClick={() => document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" })}>
               How It Works
             </Button>
+            <Button variant="ghost" size="sm" onClick={() => router.push('/command-center')}>
+              Command Center
+            </Button>
+            <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white border-red-600" onClick={() => router.push('/emergency')}>
+              🆘 Emergency
+            </Button>
           </div>
 
           {/* Right side */}

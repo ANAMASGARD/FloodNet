@@ -20,6 +20,8 @@ import {
   type OpenWeatherForecast,
 } from "@/lib/services/openweather";
 import { sendEmail, buildFloodAlertEmail } from "@/lib/services/plunk";
+import { inngest } from "@/inngest/client";
+import { evaluateEscalationPolicy } from "@/lib/services/policy";
 
 export const maxDuration = 120; // may take a while for many locations
 
@@ -209,6 +211,39 @@ export async function GET(req: NextRequest) {
       if (emailResult.success) {
         results.alertsSent++;
         console.log(`[evaluate] Alert sent to ${user.email} for ${location.label}`);
+
+        // ── Authority escalation for high / extreme risk ──────────────────
+        if (risk.riskLevel === "high" || risk.riskLevel === "extreme") {
+          const policy = evaluateEscalationPolicy({
+            riskLevel:  risk.riskLevel,
+            confidence: risk.confidence,
+            lastAuthorityNotifiedAt: null, // single-pass; dedup handled by Inngest idempotency
+          });
+          if (policy.action === "escalate_to_authority") {
+            try {
+              await inngest.send({
+                name: "flood/risk.extreme",
+                data: {
+                  assessmentId: assessment.id,
+                  locationId:   location.id,
+                  city:         location.city    ?? "Unknown",
+                  country:      location.country ?? "Unknown",
+                  lat:          location.lat,
+                  lng:          location.lng,
+                  riskLevel:    risk.riskLevel,
+                  reasoning:    risk.reasoning,
+                  confidence:   risk.confidence,
+                },
+              });
+              console.log(`[evaluate] Escalation event emitted for ${location.city} (${risk.riskLevel})`);
+            } catch (e) {
+              // Non-critical — don't fail the whole evaluate run
+              console.warn("[evaluate] Failed to emit Inngest escalation event:", e);
+            }
+          } else {
+            console.log(`[evaluate] Escalation suppressed for ${location.city}: ${policy.reason}`);
+          }
+        }
       } else {
         results.errors.push(
           `Email failed for ${user.email}: ${emailResult.error}`,
