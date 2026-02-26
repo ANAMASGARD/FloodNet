@@ -1,6 +1,6 @@
 'use client';
 
-import { Loader, PhoneOff, Mic, Shield } from 'lucide-react';
+import { Loader, PhoneOff, Mic, Car } from 'lucide-react';
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import axios from 'axios';
 import EmptyBoxState from './EmptyBoxState';
@@ -9,6 +9,13 @@ import FloodResponsePanel from './FloodResponsePanel';
 import { useVapiVoice } from '@/hooks/useVapiVoice';
 import { toast } from 'sonner';
 import type { FloodResponsePlan } from './types';
+
+// ── Household context for personalized survival coaching ──
+interface HouseholdContext {
+  floor_level: 'ground' | '1st' | '2nd_plus';
+  vulnerable_members: ('elderly' | 'children' | 'disabled' | 'pregnant')[];
+  has_vehicle: boolean;
+}
 
 interface Message {
   role: 'user' | 'assistant';
@@ -29,14 +36,14 @@ interface VoiceChatProps {
  * VOICE PATH:
  *   1. User clicks "Start Voice Report" → VAPI call starts
  *   2. VAPI transcribes in real-time → messages appear in chat
- *   3. Call ends → "Generate Response Plan" button appears automatically
- *   4. User clicks → entire conversation sent to n8n with isFinal=true
- *   5. n8n returns flood_response → map renders markers/heatmap/routes
+ *   3. Call ends → "Generate Response Plan" button appears
+ *   4. User clicks → entire conversation sent to Perplexity with isFinal=true
+ *   5. Perplexity returns flood_response → map renders markers/heatmap/routes
  *
  * TEXT PATH:
- *   1. User types message → sent to n8n via /api/ai-agent (isFinal=false)
- *   2. n8n responds conversationally
- *   3. When n8n returns ui:"final", Generate button appears
+ *   1. User types message → sent via /api/ai-agent (isFinal=false)
+ *   2. Perplexity responds conversationally
+ *   3. When Perplexity returns ui:"final", Generate button appears
  *   4. Same step 4-5 as above
  */
 function VoiceChat({ onPlanGenerated, userLocation }: VoiceChatProps) {
@@ -49,6 +56,22 @@ function VoiceChat({ onPlanGenerated, userLocation }: VoiceChatProps) {
   // Show the Generate button after voice call ends or when n8n says "final"
   const [showGenerateButton, setShowGenerateButton] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // ── Household context state ──
+  const [household, setHousehold] = useState<HouseholdContext>({
+    floor_level: 'ground',
+    vulnerable_members: [],
+    has_vehicle: false,
+  });
+
+  const toggleVulnerable = useCallback((tag: HouseholdContext['vulnerable_members'][number]) => {
+    setHousehold(prev => ({
+      ...prev,
+      vulnerable_members: prev.vulnerable_members.includes(tag)
+        ? prev.vulnerable_members.filter(t => t !== tag)
+        : [...prev.vulnerable_members, tag],
+    }));
+  }, []);
 
   // Build location payload for AI agent calls
   const aiLocationPayload = userLocation
@@ -92,14 +115,14 @@ function VoiceChat({ onPlanGenerated, userLocation }: VoiceChatProps) {
       wasActiveRef.current = true;
     } else if (wasActiveRef.current && !isCallActive) {
       wasActiveRef.current = false;
-      // Call ended — if we have transcript messages, show the Generate button
+      // Call ended — show the Generate Response Plan button
       setTimeout(() => {
         setMessages(prev => {
           if (prev.length > 0 && !isPostPlan) {
             setShowGenerateButton(true);
             const endMsg: Message = {
               role: 'assistant',
-              content: 'Voice report received! All transcript data is ready. Click the button below to send everything to the AI agent and generate your flood response plan.',
+              content: 'Voice report received! Click **Generate Response Plan** below to get your flood safety map with shelters, rescue teams, and evacuation routes.',
             };
             scrollToBottom();
             return [...prev, endMsg];
@@ -130,6 +153,7 @@ function VoiceChat({ onPlanGenerated, userLocation }: VoiceChatProps) {
         isFinal: false,
         isFollowUp: isPostPlan,
         user_location: aiLocationPayload,
+        household,
       });
 
       const assistantMsg: Message = {
@@ -163,7 +187,7 @@ function VoiceChat({ onPlanGenerated, userLocation }: VoiceChatProps) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
   }, [handleSend]);
 
-  // Generate flood response plan — sends ENTIRE conversation to n8n with isFinal=true
+  // Generate flood response plan — sends ENTIRE conversation to Perplexity with isFinal=true
   const generatePlan = useCallback(async () => {
     if (generatingPlan) return;
     setGeneratingPlan(true);
@@ -179,6 +203,7 @@ function VoiceChat({ onPlanGenerated, userLocation }: VoiceChatProps) {
         messages: conversation,
         isFinal: true,
         user_location: aiLocationPayload,
+        household,
       });
       const data: FloodResponsePlan = res.data?.flood_response ?? res.data;
 
@@ -204,7 +229,7 @@ function VoiceChat({ onPlanGenerated, userLocation }: VoiceChatProps) {
     } finally {
       setGeneratingPlan(false);
     }
-  }, [messages, generatingPlan, onPlanGenerated, aiLocationPayload]);
+  }, [messages, generatingPlan, onPlanGenerated, aiLocationPayload, household]);
 
   const handleVoiceButton = useCallback(async () => {
     if (isCallActive) {
@@ -272,6 +297,71 @@ function VoiceChat({ onPlanGenerated, userLocation }: VoiceChatProps) {
               </div>
             </div>
           )}
+        </section>
+
+        {/* ── Household Context Strip — ultra-compact inline row ────── */}
+        <section className="px-3 pt-2 pb-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Floor level */}
+            <div className="flex items-center gap-1">
+              {(['ground', '1st', '2nd_plus'] as const).map(f => (
+                <button
+                  key={f}
+                  onClick={() => setHousehold(h => ({ ...h, floor_level: f }))}
+                  title={f === 'ground' ? 'Ground floor' : f === '1st' ? '1st Floor' : '2nd floor+'}
+                  className={`px-2 py-0.5 rounded text-[9px] font-head border transition-colors ${
+                    household.floor_level === f
+                      ? 'bg-primary text-primary-foreground border-black'
+                      : 'bg-muted/50 border-border hover:bg-muted text-muted-foreground'
+                  }`}
+                >
+                  {f === 'ground' ? 'G' : f === '1st' ? '1F' : '2F+'}
+                </button>
+              ))}
+              <span className="text-[9px] text-muted-foreground ml-0.5">floor</span>
+            </div>
+
+            <div className="w-px h-3 bg-border" />
+
+            {/* Vulnerable members */}
+            <div className="flex items-center gap-1">
+              {([
+                { tag: 'elderly', emoji: '👴' },
+                { tag: 'children', emoji: '👶' },
+                { tag: 'disabled', emoji: '♿' },
+                { tag: 'pregnant', emoji: '🤰' },
+              ] as const).map(({ tag, emoji }) => (
+                <button
+                  key={tag}
+                  onClick={() => toggleVulnerable(tag)}
+                  title={tag.charAt(0).toUpperCase() + tag.slice(1)}
+                  className={`w-6 h-6 rounded text-xs flex items-center justify-center border transition-all ${
+                    household.vulnerable_members.includes(tag)
+                      ? 'bg-red-500/20 border-red-500 scale-110'
+                      : 'bg-muted/50 border-border hover:bg-muted opacity-50 hover:opacity-100'
+                  }`}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+
+            <div className="w-px h-3 bg-border" />
+
+            {/* Vehicle toggle */}
+            <button
+              onClick={() => setHousehold(h => ({ ...h, has_vehicle: !h.has_vehicle }))}
+              title="Vehicle available"
+              className={`flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-head border transition-colors ${
+                household.has_vehicle
+                  ? 'bg-green-500/20 border-green-600 text-green-700 dark:text-green-400'
+                  : 'bg-muted/50 border-border text-muted-foreground hover:bg-muted'
+              }`}
+            >
+              <Car className="w-3 h-3" />
+              {household.has_vehicle ? 'Car ✓' : 'No car'}
+            </button>
+          </div>
         </section>
 
         {/* ── Input Area ─────────────────────────────────────── */}

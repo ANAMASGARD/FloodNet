@@ -11,6 +11,12 @@ interface RiskEvaluation {
 
 const PERPLEXITY_URL = "https://api.perplexity.ai/chat/completions";
 
+function parseRiskJson(text: string): RiskEvaluation {
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error(`Failed to parse risk evaluation from LLM: ${text}`);
+  return JSON.parse(jsonMatch[0]) as RiskEvaluation;
+}
+
 export async function evaluateFloodRisk(params: {
   forecastSummary: string;
   city: string;
@@ -21,7 +27,13 @@ export async function evaluateFloodRisk(params: {
   const apiKey = process.env.PERPLEXITY_API_KEY;
   if (!apiKey) throw new Error("PERPLEXITY_API_KEY is not set");
 
-  const systemPrompt = `You are FloodNet's AI risk assessment engine. Your job is to analyze weather forecast data and determine flood risk for a specific location.
+  const systemPrompt = `You are FloodNet's AI flood risk assessment engine for life-safety early warning.
+
+Goal: classify flood risk conservatively, quickly, and actionably.
+Rules:
+- Prioritize avoiding false negatives (missing real flood risk).
+- Use clear, localized reasoning tied to rainfall/discharge trends.
+- Output only valid JSON matching schema.
 
 You MUST respond with ONLY valid JSON matching this exact schema:
 {
@@ -39,7 +51,7 @@ Risk level guidelines:
 - "high": Very heavy rain / storms, significant flooding likely, take action
 - "extreme": Severe weather emergency, major flooding imminent, evacuate if needed
 
-Consider: cumulative rainfall over 24-48h, humidity, wind, terrain flood history, current season, whether the region is flood-prone. Search for recent flood news or warnings for the area.
+Consider: cumulative rainfall over 24-48h, humidity, wind, terrain/floodplain susceptibility, urban drainage limits, current season, and recent local flood warnings/news.
 
 Be conservative — it is better to warn slightly early than miss a real flood event.`;
 
@@ -62,6 +74,7 @@ Respond with ONLY the JSON object.`;
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
+      response_format: { type: "json_object" },
       temperature: 0.1,
       max_tokens: 500,
     }),
@@ -74,14 +87,7 @@ Respond with ONLY the JSON object.`;
 
   const data = await res.json();
   const content = data.choices?.[0]?.message?.content ?? "";
-
-  // Extract JSON from response (may be wrapped in markdown code blocks)
-  const jsonMatch = content.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    throw new Error(`Failed to parse risk evaluation from LLM: ${content}`);
-  }
-
-  const parsed = JSON.parse(jsonMatch[0]) as RiskEvaluation;
+  const parsed: RiskEvaluation = parseRiskJson(content);
 
   // Validate required fields
   if (!["none", "low", "moderate", "high", "extreme"].includes(parsed.riskLevel)) {

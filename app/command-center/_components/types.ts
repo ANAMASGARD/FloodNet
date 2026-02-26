@@ -92,4 +92,35 @@ export interface FloodResponsePlan {
   route_polyline?: [number, number][];
   risk_level?: string;
   perplexity_context?: string;
+
+  /** Phase 2: Risk Timeline — qualitative risk level at future intervals */
+  risk_timeline?: {
+    hours_from_now: number;
+    risk_level: 'low' | 'moderate' | 'high' | 'extreme';
+    description: string;
+  }[];
+
+  /** Phase 2: Micro-Playbook — personalized survival steps based on household */
+  micro_playbook?: {
+    step_number: number;
+    action: string;
+    timeframe: string;
+    reason: string;
+    completed?: boolean;
+  }[];
+
+  /** Phase 3: Source Citations — claim + source pairs */
+  source_citations?: {
+    claim: string;
+    source: string;
+  }[];
+
+  /** Phase 7: Obstacle Warnings — road closures, blocked bridges, hazards */
+  obstacles?: {
+    type: 'road_closed' | 'bridge_out' | 'debris' | 'power_line' | 'landslide' | 'submerged_road';
+    description: string;
+    geo_coordinates: GeoCoordinates;
+    severity: 'critical' | 'high' | 'moderate';
+    affects_route?: string;  // which evacuation route it blocks
+  }[];
 }

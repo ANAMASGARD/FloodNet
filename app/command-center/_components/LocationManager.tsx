@@ -140,13 +140,37 @@ export default function LocationManager() {
       return;
     }
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+
+        // Always fill precise coordinates
         setForm((f) => ({
           ...f,
-          lat: pos.coords.latitude.toFixed(6),
-          lng: pos.coords.longitude.toFixed(6),
+          lat: lat.toFixed(6),
+          lng: lng.toFixed(6),
         }));
-        toast.success('Location detected');
+
+        try {
+          // Ask backend to reverse geocode into city / country / nice label
+          const res = await fetch(`/api/geocode?lat=${lat}&lng=${lng}`);
+          if (res.ok) {
+            const geo = await res.json();
+            setForm((f) => ({
+              ...f,
+              lat: lat.toFixed(6),
+              lng: lng.toFixed(6),
+              city: geo.city || f.city || '',
+              country: geo.country || f.country || '',
+              label: f.label || geo.displayName || 'My Location',
+            }));
+            toast.success(`Location detected: ${geo.displayName || `${lat.toFixed(4)}, ${lng.toFixed(4)}`}`);
+          } else {
+            toast.success('Coordinates detected — please fill in city/country if needed.');
+          }
+        } catch {
+          toast.success('Coordinates detected — please fill in city/country if needed.');
+        }
       },
       () => toast.error('Could not get location'),
     );

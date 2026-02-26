@@ -1,30 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // ═══════════════════════════════════════════════════════════════════════
-//  FloodNet AI Agent — Perplexity-Primary Orchestration
+//  FloodNet AI Agent — Perplexity sonar-pro Orchestration
 //
 //  Flow:
 //    User input → Perplexity sonar conversation → extract location
 //    → Fetch OpenWeather + Google Places data in parallel
 //    → Perplexity sonar-pro synthesises plan (real-time web search)
-//    → Gemini 2.5 Flash fallback if Perplexity unavailable
 //    → Return FloodResponsePlan → Mapbox visualisation
 // ═══════════════════════════════════════════════════════════════════════
 
-const GEMINI_KEY  = process.env.GEMINI_API_KEY        || '';
 const PLACES_KEY  = process.env.GOOGLE_PLACE_API_KEY  || '';
 const OW_KEY      = process.env.OPENWEATHER_API_KEY   || '';
 const PPLX_KEY    = process.env.PERPLEXITY_API_KEY    || '';
-
-const genAI = new GoogleGenerativeAI(GEMINI_KEY);
 
 // ═══════════════════════════ MAIN HANDLER ═══════════════════════════
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { messages, isFinal = false, isFollowUp = false, user_location } = body;
+    const { messages, isFinal = false, isFollowUp = false, user_location, household } = body;
 
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json({ error: 'Messages must be an array' }, { status: 400 });
@@ -44,7 +39,7 @@ export async function POST(req: NextRequest) {
 
     if (isFinal) {
       console.log('[FloodNet] Generating flood response plan…', locationContext ? '(with user location)' : '');
-      return await generateFloodPlan(validated, locationContext);
+      return await generateFloodPlan(validated, locationContext, household);
     }
 
     console.log('[FloodNet] Conversation:', { count: validated.length, isFollowUp, hasUserLocation: !!locationContext });
@@ -71,32 +66,86 @@ export async function POST(req: NextRequest) {
 
 function buildConvoSystem(userLocation: { latitude: number; longitude: number; placeName?: string } | null): string {
   const locationLine = userLocation
-    ? `\nUSER'S DEVICE LOCATION (from browser GPS): lat ${userLocation.latitude}, lng ${userLocation.longitude}${userLocation.placeName ? ` (approx. ${userLocation.placeName})` : ''}. If the user says "here", "my location", or "current location", use these coordinates.\n`
+    ? `\nUSER'S DEVICE LOCATION (already obtained from browser GPS): lat ${userLocation.latitude}, lng ${userLocation.longitude}${userLocation.placeName ? ` (${userLocation.placeName})` : ''}. The location is already known — do NOT ask the user for their location.\n`
     : '';
 
-  return `You are FloodNet Command Center AI — an emergency flood response coordinator.
+  return `You are FloodNet Command Center AI — an emergency flood response dispatcher for life-safety incidents.
 
-Your job: gather critical information through natural conversation.
+PRIMARY OBJECTIVE:
+- Move from user report to actionable map plan FAST.
+- Minimize questioning; infer from available context wherever possible.
 ${locationLine}
-Information needed:
-1. LOCATION — Where is the flood? (city, district, or "here" = user's GPS location above)
-2. SEVERITY — critical | high | moderate | low
-3. EMERGENCY TYPE — rescue | evacuation | medical | supply_delivery | prediction | mixed
+INFORMATION TARGETS (collect quickly — location is ALREADY KNOWN from GPS, skip it):
+1) SEVERITY (critical/high/moderate/low)
+2) EMERGENCY TYPE (rescue/evacuation/medical/supply_delivery/prediction/mixed)
 
-Rules:
-- Keep responses SHORT (2–3 sentences). One question at a time.
-- Be calm, professional, empathetic. Reply in the user's language.
-- Once all 3 pieces are collected → set ui to "final"
-- Otherwise set ui to "none"
+BEHAVIOR RULES:
+- NEVER ask for location, city, address, or coordinates. Location is pre-loaded from browser GPS.
+- Keep response concise (max 2 short sentences).
+- Ask at most ONE missing-item question; never ask multiple questions in one turn.
+- If severity/type are implicit from user message, infer them and proceed.
+- Use calm, human, urgent-but-reassuring tone in user's language.
+- As soon as severity and type are sufficiently known, return ui="final".
+- If still missing critical info, return ui="none".
 
-Respond with ONLY this JSON — no markdown, no extra text:
-{"resp": "your response", "ui": "none" | "final"}`;
+Respond ONLY JSON:
+{"resp":"string","ui":"none"|"final"}`;
 }
 
 const FOLLOWUP_SYSTEM = `You are FloodNet AI. A flood response plan has already been generated.
 Answer follow-up questions helpfully and concisely in the user's language.
 Respond with ONLY this JSON:
 {"resp": "your response", "ui": "none"}`;
+
+function extractJsonObject(text: string) {
+  const trimmed = (text || '').trim();
+  // Strip Perplexity citation markers e.g. [1], [2], [1][2] from values so JSON.parse succeeds
+  const clean = trimmed.replace(/\[\d+\](?:\[\d+\])*/g, '');
+  try { return JSON.parse(clean); } catch { /* noop */ }
+  const match = clean.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error(`No JSON object in model response: ${clean.slice(0, 200)}`);
+  try { return JSON.parse(match[0]); } catch (e2) {
+    // Last-ditch: strip trailing commas before } or ] which LLMs sometimes emit
+    const sanitised = match[0].replace(/,\s*([}\]])/g, '$1');
+    return JSON.parse(sanitised);
+  }
+}
+
+async function callPerplexityJson(args: {
+  model: 'sonar' | 'sonar-pro';
+  messages: { role: 'system' | 'user' | 'assistant'; content: string }[];
+  max_tokens: number;
+  temperature: number;
+  timeoutMs: number;
+}) {
+  if (!PPLX_KEY) throw new Error('PERPLEXITY_API_KEY missing');
+
+  // Do NOT send response_format — Perplexity sonar/sonar-pro reject it on many API versions.
+  // Instead, the system prompt instructs JSON-only output and extractJsonObject() parses it.
+  const body: Record<string, unknown> = {
+    model: args.model,
+    messages: args.messages,
+    max_tokens: args.max_tokens,
+    temperature: args.temperature,
+  };
+
+  const r = await fetch('https://api.perplexity.ai/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${PPLX_KEY}` },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(args.timeoutMs),
+  });
+
+  if (!r.ok) {
+    const errText = await r.text().catch(() => '');
+    console.error(`[FloodNet] Perplexity ${args.model} HTTP ${r.status}:`, errText.slice(0, 500));
+    throw new Error(`Perplexity ${args.model} returned ${r.status}: ${errText.slice(0, 200)}`);
+  }
+
+  const data: any = await r.json();
+  const text: string = data.choices?.[0]?.message?.content ?? '{}';
+  return extractJsonObject(text);
+}
 
 // ═══════════════════════ CONVERSATION HANDLER ═══════════════════════
 
@@ -107,53 +156,23 @@ async function handleConversation(
 ) {
   const systemPrompt = isFollowUp ? FOLLOWUP_SYSTEM : buildConvoSystem(userLocation);
 
-  // ── Primary: Perplexity sonar ──
-  if (PPLX_KEY) {
-    try {
-      const r = await fetch('https://api.perplexity.ai/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${PPLX_KEY}` },
-        body: JSON.stringify({
-          model: 'sonar',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            ...messages.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
-          ],
-          response_format: { type: 'json_object' },
-          max_tokens: 256,
-          temperature: 0.4,
-        }),
-        signal: AbortSignal.timeout(15_000),
-      });
-      if (r.ok) {
-        const data: any = await r.json();
-        const text: string = data.choices?.[0]?.message?.content ?? '';
-        try { return NextResponse.json(JSON.parse(text)); }
-        catch { return NextResponse.json({ resp: text, ui: 'none' }); }
-      }
-      console.warn('[FloodNet] Perplexity conversation returned', r.status, '— falling back to Gemini');
-    } catch (e) {
-      console.warn('[FloodNet] Perplexity conversation failed, falling back to Gemini:', (e as Error).message);
-    }
+  try {
+    const output = await callPerplexityJson({
+      model: 'sonar',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...messages.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+      ],
+      max_tokens: 256,
+      temperature: 0.35,
+      timeoutMs: 15000,
+    });
+    return NextResponse.json(output);
+  } catch (e) {
+    console.warn('[FloodNet] Perplexity conversation failed:', (e as Error).message);
   }
 
-  // ── Fallback: Gemini 2.5 Flash ──
-  if (!GEMINI_KEY) {
-    return NextResponse.json({ resp: 'AI service not configured. Please set PERPLEXITY_API_KEY or GEMINI_API_KEY.', ui: 'none' });
-  }
-  const model = genAI.getGenerativeModel({
-    model: 'gemini-2.5-flash',
-    generationConfig: { responseMimeType: 'application/json' },
-  });
-  const conversationText = messages
-    .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
-    .join('\n');
-  const result = await model.generateContent(
-    `${systemPrompt}\n\nConversation so far:\n${conversationText}\n\nRespond:`,
-  );
-  const text = result.response.text();
-  try { return NextResponse.json(JSON.parse(text)); }
-  catch { return NextResponse.json({ resp: text, ui: 'none' }); }
+  return NextResponse.json({ resp: 'AI service unavailable. Please try again in a moment.', ui: 'none' });
 }
 
 
@@ -173,24 +192,21 @@ async function extractLocation(
   messages: { role: string; content: string }[],
   userLocation: { latitude: number; longitude: number; placeName?: string } | null,
 ): Promise<LocationInfo> {
-  const model = genAI.getGenerativeModel({
-    model: 'gemini-2.5-flash',
-    generationConfig: { responseMimeType: 'application/json' },
-  });
-
   const convo = messages.map((m) => `${m.role}: ${m.content}`).join('\n');
+
+  // If we have device GPS, always use it as the primary coordinates.
+  // The AI only needs to extract severity, type, and needs from the conversation.
   const userLocNote =
     userLocation != null
-      ? `\nThe user's device location (from browser) is: lat ${userLocation.latitude}, lng ${userLocation.longitude}. If the conversation says "here", "my location", "current location", or no specific place is given, use these coordinates and set "location" to a human-readable name for this area (e.g. from geography knowledge or "User's current location").\n`
+      ? `\nThe user's device GPS location is: lat ${userLocation.latitude}, lng ${userLocation.longitude}${userLocation.placeName ? ` (${userLocation.placeName})` : ''}. USE THESE COORDINATES for lat/lng. The user was NOT asked for location — it comes from browser GPS.\n`
       : '';
 
-  const result = await model.generateContent(`
-Analyze this flood emergency conversation and extract structured information.
+  const prompt = `Analyze this flood emergency conversation and extract structured information.
 ${userLocNote}
 Conversation:
 ${convo}
 
-Return ONLY this JSON:
+Return ONLY this JSON (no markdown, no explanation):
 {
   "location": "human-readable location name (city, state, country)",
   "lat": <latitude as number>,
@@ -200,13 +216,29 @@ Return ONLY this JSON:
   "needs": ["list", "of", "specific", "needs"]
 }
 
-Use your knowledge of geography for lat/lng when a place name is given. When the user said "here" or only gave severity/type with no place, use the provided device coordinates.`);
+${userLocation ? `IMPORTANT: Use lat=${userLocation.latitude}, lng=${userLocation.longitude} for the coordinates. Derive the location name from these coordinates or the conversation.` : 'Use geography knowledge for lat/lng when a place name is given.'}`;
 
-  const parsed = JSON.parse(result.response.text()) as LocationInfo;
+  let parsed: LocationInfo;
+  try {
+    parsed = await callPerplexityJson({
+      model: 'sonar',
+      messages: [
+        { role: 'system', content: 'You are a location extraction assistant. Return only strict JSON.' },
+        { role: 'user', content: prompt },
+      ],
+      max_tokens: 256,
+      temperature: 0.2,
+      timeoutMs: 15000,
+    }) as LocationInfo;
+  } catch (e) {
+    console.warn('[FloodNet] Perplexity location extraction failed:', (e as Error).message);
+    throw e;
+  }
+
   if (userLocation != null && (parsed.lat == null || parsed.lng == null)) {
     parsed.lat = userLocation.latitude;
     parsed.lng = userLocation.longitude;
-    if (!parsed.location || parsed.location === '') parsed.location = 'User current location';
+    if (!parsed.location || parsed.location === '') parsed.location = userLocation.placeName || 'User current location';
   }
   return parsed;
 }
@@ -223,6 +255,7 @@ function detectLanguage(messages: { role: string; content: string }[]): string {
 async function generateFloodPlan(
   messages: { role: string; content: string }[],
   userLocation: { latitude: number; longitude: number; placeName?: string } | null,
+  household?: { floor_level: string; vulnerable_members: string[]; has_vehicle: boolean },
 ) {
   const loc = await extractLocation(messages, userLocation);
   const language = detectLanguage(messages);
@@ -253,19 +286,13 @@ async function generateFloodPlan(
   const riskLevel     = calculateRiskLevel(weather, discharge);
   const dataBundle    = { weather, discharge, shelters, hospitals, currentWeather, floodNews: '', routeData, heatmapPoints, riskLevel };
 
-  // ─── Plan synthesis: Perplexity sonar-pro (primary) → Gemini (fallback) ─
   let plan: any;
-  if (PPLX_KEY) {
-    try {
-      plan = await synthesizePlanPerplexity(loc, dataBundle, messages, language);
-      console.log('[FloodNet] Plan synthesised via Perplexity sonar-pro');
-    } catch (e) {
-      console.warn('[FloodNet] Perplexity synthesis failed, falling back to Gemini:', (e as Error).message);
-    }
-  }
-  if (!plan) {
-    plan = await synthesizePlanGemini(loc, dataBundle, messages);
-    console.log('[FloodNet] Plan synthesised via Gemini 2.5 Flash (fallback)');
+  try {
+    plan = await synthesizePlanPerplexity(loc, dataBundle, messages, language, household);
+    console.log('[FloodNet] Plan synthesised via Perplexity sonar-pro');
+  } catch (e) {
+    console.error('[FloodNet] Perplexity synthesis failed:', (e as Error).message);
+    return NextResponse.json({ error: 'Failed to generate flood response plan. Please try again.' }, { status: 500 });
   }
 
   // ─── Ensure all map-visible fields are populated ─────────────────
@@ -317,6 +344,7 @@ async function synthesizePlanPerplexity(
   data: { weather: any; discharge: any; shelters: any[]; hospitals: any[]; currentWeather: any; floodNews: string; routeData: any; heatmapPoints: any[]; riskLevel: string },
   messages: { role: string; content: string }[],
   language: string,
+  household?: { floor_level: string; vulnerable_members: string[]; has_vehicle: boolean },
 ) {
   const p0 = data.weather?.daily?.precipitation_sum?.[0] ?? 0;
   const p1 = data.weather?.daily?.precipitation_sum?.[1] ?? 0;
@@ -325,13 +353,31 @@ async function synthesizePlanPerplexity(
   const maxD = ds.length > 0 ? Math.max(...ds.filter(Boolean)) : 0;
   const convo = messages.map(m => `${m.role}: ${m.content}`).join('\n');
 
-  const systemPrompt = `You are FloodNet AI Planner. Search the web for CURRENT flood conditions in the specified location, then combine with the provided API data to create a complete, accurate flood response plan.
-Return ONLY valid JSON matching the schema exactly — no prose, no markdown.`;
+  const systemPrompt = `You are FloodNet AI Planner, an emergency-grade flood operations co-pilot.
+
+Mission priorities (in order):
+1) Protect life (rescue, evacuation, medical urgency)
+2) Reduce exposure (move people away from rising water / unstable routes)
+3) Maintain continuity (supplies, access to shelters/hospitals)
+
+Reasoning policy:
+- Fuse provided API telemetry + current web intelligence.
+- Prefer specific, local, time-bound actions over generic advice.
+- If uncertain, choose safer conservative recommendation.
+- Output must be VALID JSON only, no markdown.`;
+
+  const householdBlock = household
+    ? `\nHOUSEHOLD CONTEXT (personalize the micro_playbook based on this):
+- Floor level: ${household.floor_level}
+- Vulnerable members: ${household.vulnerable_members.length > 0 ? household.vulnerable_members.join(', ') : 'None'}
+- Vehicle available: ${household.has_vehicle ? 'Yes' : 'No'}
+`
+    : '';
 
   const userPrompt = `LOCATION: ${loc.location} (lat ${loc.lat}, lng ${loc.lng})
 SEVERITY: ${loc.severity} | TYPE: ${loc.emergency_type} | NEEDS: ${loc.needs.join(', ')}
 LANGUAGE: ${language}
-
+${householdBlock}
 REAL-TIME DATA:
 - OpenWeather: ${data.currentWeather ? JSON.stringify(data.currentWeather) : 'N/A'}
 - Precipitation (Open-Meteo, mm): Day0=${p0}, Day1=${p1}, Day2=${p2}
@@ -341,7 +387,7 @@ REAL-TIME DATA:
 - Route to nearest shelter: ${data.routeData ? `${data.routeData.distance_km}km, ${data.routeData.eta_minutes}min, traffic=${data.routeData.traffic}` : 'N/A'}
 - Conversation: ${convo}
 
-TASK: Search the web NOW for current flood news, government advisories, rescue operations, and road closures in ${loc.location}. Combine that with the provided data to generate the plan.
+TASK: Search the web NOW for current flood news, district advisories, rescue ops, road closures, dam releases, and weather alerts in ${loc.location}. Combine with provided telemetry to generate an operational map-ready plan.
 
 Return this exact JSON schema:
 {
@@ -357,30 +403,40 @@ Return this exact JSON schema:
   "evacuation_routes": [{"route_name": "str", "from": {"latitude": ${loc.lat}, "longitude": ${loc.lng}}, "to": {"latitude": 0.0, "longitude": 0.0}, "distance_km": 0.0, "estimated_time_minutes": 0, "status": "clear|partial|blocked"}],
   "immediate_actions": [{"step": 1, "title": "str", "description": "str", "priority": "critical|high|medium"}],
   "resource_needs": [{"item": "str", "quantity": "str", "urgency": "immediate|within_hours|within_day"}],
+  "risk_timeline": [
+    {"hours_from_now": 6, "risk_level": "low|moderate|high|extreme", "description": "what to expect in next 6h"},
+    {"hours_from_now": 12, "risk_level": "low|moderate|high|extreme", "description": "12h outlook"},
+    {"hours_from_now": 24, "risk_level": "low|moderate|high|extreme", "description": "24h outlook"},
+    {"hours_from_now": 48, "risk_level": "low|moderate|high|extreme", "description": "48h outlook"}
+  ],
+  "micro_playbook": [
+    {"step_number": 1, "action": "str", "timeframe": "now|within_1h|within_6h|within_12h", "reason": "why this matters"}
+  ],
+  "source_citations": [
+    {"claim": "specific factual claim from your plan", "source": "source name or URL"}
+  ],
+  "obstacles": [
+    {"type": "road_closed|bridge_out|debris|power_line|landslide|submerged_road", "description": "str", "geo_coordinates": {"latitude": 0.0, "longitude": 0.0}, "severity": "critical|high|moderate", "affects_route": "name of route if relevant"}
+  ],
   "disclaimer": "AI-generated plan. Verify with local emergency management authorities."
-}`;
+}
 
-  const r = await fetch('https://api.perplexity.ai/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${PPLX_KEY}` },
-    body: JSON.stringify({
-      model: 'sonar-pro',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user',   content: userPrompt },
-      ],
-      response_format: { type: 'json_object' },
-      max_tokens: 4096,
-      temperature: 0.3,
-    }),
-    signal: AbortSignal.timeout(45_000),
+RULES:
+- risk_timeline: Use qualitative levels based on precipitation forecast trends. 4 entries (6h, 12h, 24h, 48h).
+- micro_playbook: 5-8 personalized survival steps. ${household ? `This household is on ${household.floor_level} floor, has ${household.vulnerable_members.length > 0 ? household.vulnerable_members.join(', ') : 'no vulnerable members'}, ${household.has_vehicle ? 'has a vehicle' : 'no vehicle'}.` : 'No household info provided, give general advice.'} Prioritize actions for their specific situation.
+- source_citations: 3-5 citations. Cite web sources you found for flood claims.
+- obstacles: 3-6 realistic road/infrastructure hazards near the flood zones. Use REAL road names and coordinates near ${loc.location}. Types: road_closed (flooded road), bridge_out (damaged bridge), debris (fallen trees/wreckage), power_line (downed power line), landslide, submerged_road. Place them along or near evacuation routes to warn users.`;
+
+  const plan = await callPerplexityJson({
+    model: 'sonar-pro',
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    max_tokens: 4096,
+    temperature: 0.25,
+    timeoutMs: 45000,
   });
-
-  if (!r.ok) throw new Error(`Perplexity sonar-pro returned ${r.status}`);
-
-  const apiData: any = await r.json();
-  const text: string = apiData.choices?.[0]?.message?.content ?? '';
-  const plan = JSON.parse(text);
 
   plan.heatmap_points = data.heatmapPoints;
   plan.risk_level     = data.riskLevel;
@@ -585,71 +641,6 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a = Math.sin(dLat / 2) ** 2 + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-// ═══════════════════════ GEMINI PLAN SYNTHESIS (FALLBACK) ═══════════
-
-async function synthesizePlanGemini(
-  loc: LocationInfo,
-  data: { weather: any; discharge: any; shelters: any[]; hospitals: any[]; currentWeather: any; floodNews: string; routeData: any; heatmapPoints: any[]; riskLevel: string },
-  messages: { role: string; content: string }[],
-) {
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash', generationConfig: { responseMimeType: 'application/json' } });
-  const convo = messages.map(m => `${m.role}: ${m.content}`).join('\n');
-  const p0 = data.weather?.daily?.precipitation_sum?.[0] ?? 0;
-  const p1 = data.weather?.daily?.precipitation_sum?.[1] ?? 0;
-  const p2 = data.weather?.daily?.precipitation_sum?.[2] ?? 0;
-  const ds = data.discharge?.daily?.river_discharge || [];
-  const maxD = ds.length > 0 ? Math.max(...ds.filter(Boolean)) : 0;
-
-  const result = await model.generateContent(`
-You are FloodNet AI Planner. Generate a complete flood response plan from REAL data.
-
-REAL API DATA:
-Location: ${loc.location} (${loc.lat}, ${loc.lng})
-Severity: ${loc.severity} | Emergency: ${loc.emergency_type} | Needs: ${loc.needs.join(', ')}
-Weather: Day0=${p0}mm, Day1=${p1}mm, Day2=${p2}mm | River Discharge: max ${maxD} m³/s | Risk: ${data.riskLevel.toUpperCase()}
-Current Weather: ${data.currentWeather ? JSON.stringify(data.currentWeather) : 'N/A'}
-Shelters (Google Places): ${JSON.stringify(data.shelters.slice(0, 4))}
-Hospitals (Google Places): ${JSON.stringify(data.hospitals.slice(0, 4))}
-Route: ${data.routeData ? JSON.stringify({ eta: data.routeData.eta_minutes, dist: data.routeData.distance_km, traffic: data.routeData.traffic }) : 'N/A'}
-News (Perplexity): ${data.floodNews || 'N/A'}
-Conversation: ${convo}
-
-Return this JSON:
-{
-  "location": "${loc.location}",
-  "severity": "${data.riskLevel}",
-  "emergency_type": "${loc.emergency_type}",
-  "summary": "<3-4 sentences using real data>",
-  "center_coordinates": {"latitude": ${loc.lat}, "longitude": ${loc.lng}},
-  "flood_zones": [{"zone_name": str, "severity": "critical|high|moderate|low", "geo_coordinates": {"latitude": num, "longitude": num}, "water_level_m": num, "affected_population": num, "description": str}],
-  "safe_zones": [{"name": "<real name from shelters>", "geo_coordinates": {"latitude": num, "longitude": num}, "capacity": num, "current_occupancy": num, "specialty": str, "eta_minutes": num}],
-  "rescue_teams": [{"team_id": str, "team_name": str, "status": "deployed|standby|en_route", "geo_coordinates": {"latitude": num, "longitude": num}, "equipment": [str], "eta_minutes": num}],
-  "evacuation_routes": [{"route_name": str, "from": {"latitude": ${loc.lat}, "longitude": ${loc.lng}}, "to": {"latitude": ${data.shelters[0]?.lat || loc.lat}, "longitude": ${data.shelters[0]?.lng || loc.lng}}, "distance_km": ${data.routeData?.distance_km || 5}, "estimated_time_minutes": ${data.routeData?.eta_minutes || 15}, "status": "${data.routeData?.traffic === 'HEAVY' ? 'partial' : 'clear'}"}],
-  "immediate_actions": [{"step": num, "title": str, "description": str, "priority": "critical|high|medium"}],
-  "resource_needs": [{"item": str, "quantity": str, "urgency": "immediate|within_hours|within_day"}],
-  "disclaimer": "AI-generated plan based on real-time data. Verify with local authorities."
-}
-
-RULES: Use REAL coordinates, names, weather numbers. Generate 3-5 flood zones, 4-6 actions, 4-6 resources. Return ONLY JSON.`);
-
-  let plan: any;
-  try { plan = JSON.parse(result.response.text()); }
-  catch { plan = JSON.parse(result.response.text().replace(/```json?\n?/g, '').replace(/```/g, '').trim()); }
-
-  plan.heatmap_points = data.heatmapPoints;
-  plan.risk_level = data.riskLevel;
-  plan.weather_current = data.currentWeather;
-  plan.perplexity_context = data.floodNews;
-  plan.hospitals = data.hospitals.map((h: any) => ({
-    name: h.name, address: h.address,
-    geo_coordinates: { latitude: h.lat, longitude: h.lng },
-    distance_km: h.distance_km, open_now: h.open_now, at_risk: h.at_risk,
-  }));
-  if (data.routeData?.polyline_coords?.length) plan.route_polyline = data.routeData.polyline_coords;
-
-  return plan;
 }
 
 // ═══════════════════════ UTILITIES ═══════════════════════

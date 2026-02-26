@@ -170,3 +170,26 @@ export const rescueIncidents = pgTable(
     index("idx_rescue_created").on(table.createdAt),
   ],
 );
+
+// ─── Community flood reports (crowd-sourced situation awareness) ──────────────
+export const communityReports = pgTable(
+  "community_reports",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clerkId: text("clerk_id").notNull(),
+    lat: doublePrecision("lat").notNull(),
+    lng: doublePrecision("lng").notNull(),
+    reportType: varchar("report_type", { length: 30 }).notNull(), // flooding | road_blocked | power_out | needs_rescue | water_rising | safe_passage
+    severity: varchar("severity", { length: 20 }).default("moderate").notNull(), // low | moderate | high | critical
+    description: text("description"),
+    confirmCount: integer("confirm_count").default(0).notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+    expiresAt: timestamp("expires_at").notNull(), // auto-expire after 6h
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("idx_community_reports_location").on(table.lat, table.lng),
+    index("idx_community_reports_active").on(table.isActive),
+    index("idx_community_reports_created").on(table.createdAt),
+  ],
+);

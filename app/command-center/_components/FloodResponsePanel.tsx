@@ -1,6 +1,6 @@
 'use client';
-import React from 'react';
-import { Shield, MapPin, Ship, AlertTriangle, Package, Route, Heart, Cloud, Newspaper } from 'lucide-react';
+import React, { useState } from 'react';
+import { Shield, MapPin, Ship, AlertTriangle, Package, Route, Heart, Cloud, Newspaper, Clock, CheckCircle2, Circle, ExternalLink, BookOpen } from 'lucide-react';
 import type { FloodResponsePlan } from './types';
 
 interface Props {
@@ -27,6 +27,24 @@ const urgencyBadge: Record<string, string> = {
 };
 
 export default function FloodResponsePanel({ plan }: Props) {
+  const [checkedSteps, setCheckedSteps] = useState<Set<number>>(new Set());
+
+  const toggleStep = (step: number) => {
+    setCheckedSteps(prev => {
+      const next = new Set(prev);
+      if (next.has(step)) next.delete(step);
+      else next.add(step);
+      return next;
+    });
+  };
+
+  const riskColor: Record<string, { bg: string; text: string; bar: string }> = {
+    low:      { bg: 'bg-green-500/10', text: 'text-green-600', bar: 'bg-green-500' },
+    moderate: { bg: 'bg-yellow-500/10', text: 'text-yellow-600', bar: 'bg-yellow-500' },
+    high:     { bg: 'bg-orange-500/10', text: 'text-orange-600', bar: 'bg-orange-500' },
+    extreme:  { bg: 'bg-red-500/10', text: 'text-red-600', bar: 'bg-red-500' },
+  };
+
   return (
     <div id="response-section" className="space-y-6 pb-8">
       {/* Header */}
@@ -63,6 +81,105 @@ export default function FloodResponsePanel({ plan }: Props) {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* ── Risk Timeline ─────────────────────────────────── */}
+      {plan.risk_timeline && plan.risk_timeline.length > 0 && (
+        <div className="border-2 rounded-2xl p-5 bg-card shadow-md">
+          <div className="flex items-center gap-2 mb-4">
+            <Clock className="w-5 h-5 text-blue-500" />
+            <h3 className="font-head text-lg">Risk Timeline</h3>
+          </div>
+          <div className="flex items-end gap-1 h-20 mb-3">
+            {plan.risk_timeline.map((t, i) => {
+              const rc = riskColor[t.risk_level] || riskColor.low;
+              const heightPct = t.risk_level === 'extreme' ? 100 : t.risk_level === 'high' ? 75 : t.risk_level === 'moderate' ? 50 : 25;
+              return (
+                <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                  <div className="w-full flex flex-col items-center justify-end h-16">
+                    <div
+                      className={`w-full rounded-t-lg ${rc.bar} transition-all duration-500`}
+                      style={{ height: `${heightPct}%`, minHeight: '8px' }}
+                    />
+                  </div>
+                  <span className={`text-[9px] font-head ${rc.text}`}>{t.risk_level}</span>
+                  <span className="text-[9px] text-muted-foreground">+{t.hours_from_now}h</span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="space-y-1.5">
+            {plan.risk_timeline.map((t, i) => {
+              const rc = riskColor[t.risk_level] || riskColor.low;
+              return (
+                <div key={i} className={`flex items-start gap-2 px-3 py-2 rounded-lg ${rc.bg}`}>
+                  <span className={`text-[10px] font-head ${rc.text} shrink-0 mt-0.5`}>+{t.hours_from_now}h</span>
+                  <p className="text-[10px] text-muted-foreground">{t.description}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Survival Playbook ─────────────────────────────── */}
+      {plan.micro_playbook && plan.micro_playbook.length > 0 && (
+        <div className="border-2 rounded-2xl p-5 bg-card shadow-md">
+          <div className="flex items-center gap-2 mb-1">
+            <BookOpen className="w-5 h-5 text-emerald-500" />
+            <h3 className="font-head text-lg">Your Survival Playbook</h3>
+          </div>
+          <p className="text-[10px] text-muted-foreground mb-4">Personalized for your household. Check off as you complete each step.</p>
+          <div className="space-y-2">
+            {plan.micro_playbook.map((step) => {
+              const done = checkedSteps.has(step.step_number);
+              const timeColor =
+                step.timeframe === 'now' ? 'bg-red-500 text-white' :
+                step.timeframe === 'within_1h' ? 'bg-orange-400 text-white' :
+                step.timeframe === 'within_6h' ? 'bg-yellow-400 text-black' :
+                'bg-blue-400 text-white';
+              return (
+                <button
+                  key={step.step_number}
+                  onClick={() => toggleStep(step.step_number)}
+                  className={`w-full flex items-start gap-3 p-3 rounded-xl border-2 text-left transition-all ${
+                    done ? 'bg-green-500/5 border-green-500/30 opacity-70' : 'bg-muted/50 border-border hover:border-primary/30'
+                  }`}
+                >
+                  <div className="shrink-0 mt-0.5">
+                    {done ? (
+                      <CheckCircle2 className="w-5 h-5 text-green-500" />
+                    ) : (
+                      <Circle className="w-5 h-5 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className={`font-head text-sm ${done ? 'line-through' : ''}`}>{step.action}</span>
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-head shrink-0 ${timeColor}`}>
+                        {step.timeframe.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">{step.reason}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          {plan.micro_playbook.length > 0 && (
+            <div className="mt-3 flex items-center justify-between px-1">
+              <span className="text-[10px] text-muted-foreground font-head">
+                {checkedSteps.size}/{plan.micro_playbook.length} completed
+              </span>
+              <div className="flex-1 mx-3 h-1.5 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-green-500 transition-all duration-300"
+                  style={{ width: `${(checkedSteps.size / plan.micro_playbook.length) * 100}%` }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -263,6 +380,82 @@ export default function FloodResponsePanel({ plan }: Props) {
                 <span className="text-xs text-muted-foreground">{need.quantity}</span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Source Citations */}
+      {plan.source_citations && plan.source_citations.length > 0 && (
+        <div className="border-2 rounded-2xl p-5 bg-card shadow-md">
+          <div className="flex items-center gap-2 mb-4">
+            <ExternalLink className="w-5 h-5 text-indigo-500" />
+            <h3 className="font-head text-lg">Sources</h3>
+          </div>
+          <div className="space-y-2">
+            {plan.source_citations.map((cite, i) => (
+              <div key={i} className="flex items-start gap-2 p-3 bg-muted/50 rounded-xl border-2">
+                <span className="text-[10px] font-head text-indigo-500 shrink-0 mt-0.5">[{i + 1}]</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs">{cite.claim}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                    {cite.source.startsWith('http') ? (
+                      <a href={cite.source} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                        {cite.source}
+                      </a>
+                    ) : (
+                      <span className="italic">{cite.source}</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Obstacle Warnings */}
+      {plan.obstacles && plan.obstacles.length > 0 && (
+        <div className="border-2 rounded-2xl p-5 bg-card shadow-md border-orange-500/30">
+          <div className="flex items-center gap-2 mb-4">
+            <AlertTriangle className="w-5 h-5 text-orange-500" />
+            <h3 className="font-head text-lg">Road &amp; Infrastructure Hazards</h3>
+            <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-600 font-head">
+              {plan.obstacles.length} hazard{plan.obstacles.length > 1 ? 's' : ''}
+            </span>
+          </div>
+          <div className="space-y-2">
+            {plan.obstacles.map((obs, i) => {
+              const obstacleIcons: Record<string, string> = {
+                road_closed: '🚧', bridge_out: '🌉', debris: '🪵',
+                power_line: '⚡', landslide: '🏔️', submerged_road: '🌊',
+              };
+              const icon = obstacleIcons[obs.type] || '⚠️';
+              const sevBg = obs.severity === 'critical' ? 'bg-red-500/10 border-red-500/30' :
+                            obs.severity === 'high' ? 'bg-orange-500/10 border-orange-500/30' :
+                            'bg-yellow-500/10 border-yellow-500/30';
+              const sevText = obs.severity === 'critical' ? 'bg-red-500 text-white' :
+                              obs.severity === 'high' ? 'bg-orange-500 text-white' :
+                              'bg-yellow-400 text-black';
+              return (
+                <div key={i} className={`flex items-start gap-3 p-3 rounded-xl border-2 ${sevBg}`}>
+                  <span className="text-lg shrink-0">{icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="font-head text-xs">{obs.type.replace(/_/g, ' ').toUpperCase()}</span>
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded font-head ${sevText}`}>
+                        {obs.severity}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{obs.description}</p>
+                    {obs.affects_route && (
+                      <p className="text-[10px] text-orange-600 mt-1 font-head">
+                        ⚠ Affects: {obs.affects_route}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
